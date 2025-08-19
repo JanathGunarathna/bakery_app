@@ -1,13 +1,12 @@
 import './App.css';
-import React from 'react'; 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";  // Fixed import source
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";  
 
 import Welcome from './pages/welcome';
 import SelectionPage from './pages/selectionPage';
 
 function App() {
   return (
-    <Router>  {/* Added Router wrapper */}
+    <Router> 
       <div className="App">
         <header className="App-header">
           <Routes>
