@@ -23,7 +23,7 @@ export default function SelectionPage() {
   const [inventoryData, setInventoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [editedItems, setEditedItems] = useState(new Set());
+  const [editingCells, setEditingCells] = useState(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [bakeryItems, setBakeryItems] = useState([...BAKERY_ITEMS]);
   
@@ -36,9 +36,6 @@ export default function SelectionPage() {
   // UI state
   const [showNewItemForm, setShowNewItemForm] = useState(false);
   const [newItemName, setNewItemName] = useState("");
-  
-  // Store current session changes separately
-  const [sessionChanges, setSessionChanges] = useState({});
   
   // Firestore collection reference
   const inventoryRef = collection(firestore, "inventory");
@@ -56,7 +53,6 @@ export default function SelectionPage() {
       }));
       
       setInventoryData(data);
-      console.log("Fetched inventory data:", data.length, "items");
     } catch (error) {
       console.error("Error fetching inventory data:", error);
       
@@ -75,7 +71,6 @@ export default function SelectionPage() {
           return dateB - dateA;
         });
         setInventoryData(data);
-        console.log("Fetched inventory data (fallback):", data.length, "items");
       } catch (fallbackError) {
         console.error("Fallback fetch failed:", fallbackError);
         setInventoryData([]);
@@ -105,7 +100,7 @@ export default function SelectionPage() {
       item.date === previousDateStr
     );
     
-    return previousDayData ? (parseInt(previousDayData.remainingInventory) || 0) : 0;
+    return previousDayData ? (previousDayData.remainingInventory || 0) : 0;
   }, [inventoryData]);
   
   // Create complete table data with all items
@@ -121,28 +116,14 @@ export default function SelectionPage() {
         item.date === date
       );
       
-      // Create a unique key for this item
-      const itemKey = `${shop}_${date}_${itemName}`;
-      
-      // Check if there are session changes for this item
-      const sessionChange = sessionChanges[itemKey];
-      
       const previousDayRemaining = getPreviousDayRemaining(itemName, shop, date);
-      
-      // Use session changes if available, otherwise use existing data
-      const addedInventory = sessionChange 
-        ? (parseInt(sessionChange.addedInventory) || 0)
-        : (parseInt(existingData?.addedInventory) || 0);
-      
-      const selling = sessionChange 
-        ? (parseInt(sessionChange.selling) || 0)
-        : (parseInt(existingData?.selling) || 0);
-        
+      const addedInventory = existingData ? (existingData.addedInventory || 0) : 0;
       const startingInventory = previousDayRemaining + addedInventory;
+      const selling = existingData ? (existingData.selling || 0) : 0;
       const remainingInventory = startingInventory - selling;
       
       return {
-        id: itemKey, // Use consistent key
+        id: existingData?.id || `${shop}_${date}_${itemName}`,
         itemName,
         shop,
         date,
@@ -152,11 +133,10 @@ export default function SelectionPage() {
         selling,
         remainingInventory,
         isExisting: !!existingData,
-        firestoreId: existingData?.id, // Keep track of actual Firestore document ID
-        hasChanges: !!sessionChange
+        originalData: existingData
       };
     });
-  }, [bakeryItems, inventoryData, filters, getPreviousDayRemaining, sessionChanges]);
+  }, [bakeryItems, inventoryData, filters, getPreviousDayRemaining]);
   
   // Handle filter changes
   const handleFilterChange = useCallback((field, value) => {
@@ -164,139 +144,115 @@ export default function SelectionPage() {
       ...prev,
       [field]: value
     }));
-    // Clear edited items and session changes when filters change
-    setEditedItems(new Set());
-    setSessionChanges({});
-    setHasUnsavedChanges(false);
   }, []);
   
   // Handle cell edit
-  const handleCellEdit = useCallback((itemKey, field, value) => {
-    const numValue = parseInt(value) || 0;
+  const handleCellEdit = useCallback((itemId, field, value) => {
+    const cellKey = `${itemId}_${field}`;
     
-    console.log(`Editing ${field} for item ${itemKey}: ${value}`);
-    
-    // Find the current item data
-    const currentItem = completeTableData.find(item => item.id === itemKey);
-    if (!currentItem) return;
-    
-    // Update session changes
-    setSessionChanges(prev => {
-      const existing = prev[itemKey] || {};
-      const updated = { ...existing };
+    // Update the inventory data
+    setInventoryData(prevData => {
+      const existingItemIndex = prevData.findIndex(item => item.id === itemId);
       
-      if (field === 'addedInventory') {
-        updated.addedInventory = numValue;
-        // Recalculate dependent values
-        const selling = parseInt(updated.selling) || 0;
-        const startingInventory = currentItem.previousDayRemaining + numValue;
-        updated.startingInventory = startingInventory;
-        updated.remainingInventory = startingInventory - selling;
-      } else if (field === 'selling') {
-        updated.selling = numValue;
-        // Recalculate remaining inventory
-        const addedInventory = parseInt(updated.addedInventory) || parseInt(currentItem.addedInventory) || 0;
-        const startingInventory = currentItem.previousDayRemaining + addedInventory;
-        updated.startingInventory = startingInventory;
-        updated.remainingInventory = startingInventory - numValue;
+      if (existingItemIndex >= 0) {
+        // Update existing item
+        const updatedData = [...prevData];
+        const updatedItem = { ...updatedData[existingItemIndex] };
+        
+        if (field === 'addedInventory') {
+          const addedInventory = parseInt(value) || 0;
+          const previousDayRemaining = getPreviousDayRemaining(updatedItem.itemName, updatedItem.shop, updatedItem.date);
+          updatedItem.addedInventory = addedInventory;
+          updatedItem.startingInventory = previousDayRemaining + addedInventory;
+          updatedItem.remainingInventory = updatedItem.startingInventory - (updatedItem.selling || 0);
+        } else if (field === 'selling') {
+          const selling = parseInt(value) || 0;
+          updatedItem.selling = selling;
+          updatedItem.remainingInventory = (updatedItem.startingInventory || 0) - selling;
+        }
+        
+        updatedData[existingItemIndex] = updatedItem;
+        return updatedData;
+      } else {
+        // Create new item for items that don't exist in database yet
+        const [shop, date, itemName] = itemId.split('_');
+        const previousDayRemaining = getPreviousDayRemaining(itemName, shop, date);
+        
+        const newItem = {
+          id: itemId,
+          itemName,
+          shop,
+          date,
+          previousDayRemaining,
+          addedInventory: field === 'addedInventory' ? (parseInt(value) || 0) : 0,
+          selling: field === 'selling' ? (parseInt(value) || 0) : 0,
+          createdAt: new Date().toISOString(),
+        };
+        
+        newItem.startingInventory = newItem.previousDayRemaining + newItem.addedInventory;
+        newItem.remainingInventory = newItem.startingInventory - newItem.selling;
+        
+        return [...prevData, newItem];
       }
-      
-      // Include item details for saving
-      updated.itemName = currentItem.itemName;
-      updated.shop = currentItem.shop;
-      updated.date = currentItem.date;
-      updated.previousDayRemaining = currentItem.previousDayRemaining;
-      updated.firestoreId = currentItem.firestoreId;
-      
-      return {
-        ...prev,
-        [itemKey]: updated
-      };
     });
     
-    // Mark item as edited
-    setEditedItems(prev => new Set([...prev, itemKey]));
+    // Mark cell as edited
+    setEditingCells(prev => new Set([...prev, cellKey]));
     setHasUnsavedChanges(true);
-  }, [completeTableData]);
+  }, [getPreviousDayRemaining]);
   
   // Save changes to Firebase
   const handleSaveChanges = useCallback(async () => {
     try {
       setSubmitting(true);
       
-      const itemsToSave = Object.entries(sessionChanges).filter(([itemKey, changes]) => {
-        const hasAddedInventory = (parseInt(changes.addedInventory) || 0) > 0;
-        const hasSelling = (parseInt(changes.selling) || 0) > 0;
-        const isEdited = editedItems.has(itemKey);
-        
-        return isEdited && (hasAddedInventory || hasSelling);
+      const updatedItems = completeTableData.filter(item => {
+        const addedCellKey = `${item.id}_addedInventory`;
+        const sellingCellKey = `${item.id}_selling`;
+        return editingCells.has(addedCellKey) || editingCells.has(sellingCellKey);
       });
       
-      console.log("Items to save:", itemsToSave.length);
-      
-      if (itemsToSave.length === 0) {
-        alert("No changes detected to save. Please enter some inventory data first.");
-        return;
-      }
-      
-      const savePromises = itemsToSave.map(async ([itemKey, changes]) => {
-        try {
-          const dataToSave = {
-            date: changes.date,
-            shop: changes.shop,
-            itemName: changes.itemName,
-            previousDayRemaining: parseInt(changes.previousDayRemaining) || 0,
-            addedInventory: parseInt(changes.addedInventory) || 0,
-            startingInventory: parseInt(changes.startingInventory) || 0,
-            selling: parseInt(changes.selling) || 0,
-            remainingInventory: parseInt(changes.remainingInventory) || 0,
-          };
-          
-          if (changes.firestoreId) {
-            // Update existing document
-            console.log("Updating existing item:", changes.itemName, "with ID:", changes.firestoreId);
-            const docRef = doc(firestore, "inventory", changes.firestoreId);
-            await updateDoc(docRef, {
-              ...dataToSave,
-              updatedAt: new Date().toISOString()
-            });
-          } else {
-            // Create new document
-            console.log("Creating new item:", changes.itemName);
-            await addDoc(inventoryRef, {
-              ...dataToSave,
-              createdAt: new Date().toISOString()
-            });
-          }
-        } catch (itemError) {
-          console.error(`Error saving item ${changes.itemName}:`, itemError);
-          throw itemError;
+      const savePromises = updatedItems.map(async (item) => {
+        if (item.isExisting && item.originalData) {
+          // Update existing document
+          const docRef = doc(firestore, "inventory", item.originalData.id);
+          await updateDoc(docRef, {
+            addedInventory: item.addedInventory,
+            startingInventory: item.startingInventory,
+            selling: item.selling,
+            remainingInventory: item.remainingInventory,
+            updatedAt: new Date().toISOString()
+          });
+        } else if (item.addedInventory > 0 || item.selling > 0) {
+          // Create new document only if there's actual data
+          await addDoc(inventoryRef, {
+            date: item.date,
+            shop: item.shop,
+            itemName: item.itemName,
+            previousDayRemaining: item.previousDayRemaining,
+            addedInventory: item.addedInventory,
+            startingInventory: item.startingInventory,
+            selling: item.selling,
+            remainingInventory: item.remainingInventory,
+            createdAt: new Date().toISOString(),
+          });
         }
       });
       
       await Promise.all(savePromises);
       
-      // Clear session state
-      setEditedItems(new Set());
-      setSessionChanges({});
+      setEditingCells(new Set());
       setHasUnsavedChanges(false);
-      
-      // Refresh data
       await fetchInventoryData();
       
-      alert(`Successfully saved ${itemsToSave.length} items!`);
+      alert("Changes saved successfully!");
     } catch (error) {
       console.error("Error saving changes:", error);
-      const errorMessage = error.code === 'permission-denied' 
-        ? "Permission denied. Please check your Firebase permissions."
-        : error.code === 'unavailable'
-        ? "Firebase service temporarily unavailable. Please try again."
-        : `Failed to save changes: ${error.message}`;
-      alert(errorMessage);
+      alert("Failed to save changes. Please try again.");
     } finally {
       setSubmitting(false);
     }
-  }, [sessionChanges, editedItems, fetchInventoryData]);
+  }, [completeTableData, editingCells, fetchInventoryData]);
   
   // Add new bakery item
   const handleAddNewItem = useCallback(() => {
@@ -448,11 +404,6 @@ export default function SelectionPage() {
             </h2>
             <p className="text-slate-600 text-sm mt-1">
               Complete inventory view for all {bakeryItems.length} bakery items
-              {hasUnsavedChanges && (
-                <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  {editedItems.size} unsaved changes
-                </span>
-              )}
             </p>
           </div>
           
@@ -493,7 +444,7 @@ export default function SelectionPage() {
                 ) : (
                   completeTableData.map((row, index) => {
                     const hasData = row.addedInventory > 0 || row.selling > 0;
-                    const isEdited = editedItems.has(row.id);
+                    const isEdited = editingCells.has(`${row.id}_addedInventory`) || editingCells.has(`${row.id}_selling`);
                     
                     return (
                       <tr 
@@ -504,11 +455,7 @@ export default function SelectionPage() {
                       >
                         <td className="px-4 py-3 text-sm font-medium text-slate-800">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${
-                              hasData ? 'bg-blue-500' : 
-                              isEdited ? 'bg-yellow-500' :
-                              'bg-slate-300'
-                            }`}></span>
+                            <span className={`w-2 h-2 rounded-full ${hasData ? 'bg-blue-500' : 'bg-slate-300'}`}></span>
                             <span title={row.itemName} className="truncate">
                               {row.itemName}
                             </span>
@@ -527,7 +474,7 @@ export default function SelectionPage() {
                             value={row.addedInventory}
                             onChange={(e) => handleCellEdit(row.id, 'addedInventory', e.target.value)}
                             className={`w-20 text-center border rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                              isEdited 
+                              editingCells.has(`${row.id}_addedInventory`) 
                                 ? 'border-yellow-400 bg-yellow-50' 
                                 : 'border-slate-300'
                             }`}
@@ -548,7 +495,7 @@ export default function SelectionPage() {
                             value={row.selling}
                             onChange={(e) => handleCellEdit(row.id, 'selling', e.target.value)}
                             className={`w-20 text-center border rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                              isEdited 
+                              editingCells.has(`${row.id}_selling`) 
                                 ? 'border-yellow-400 bg-yellow-50' 
                                 : 'border-slate-300'
                             }`}
