@@ -6,7 +6,6 @@ export default function Welcome() {
   const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    // For demo purposes, just show an alert
     navigate("/selection");
   };
 
@@ -18,288 +17,246 @@ export default function Welcome() {
     <div
       className={`min-h-screen relative transition-all duration-700 ease-in-out ${
         darkMode
-          ? "bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white"
-          : "bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 text-gray-900"
+          ? "bg-gradient-to-br from-slate-900 via-gray-900 to-neutral-900 text-white"
+          : "bg-gradient-to-br from-stone-50 via-amber-50 to-orange-50 text-gray-900"
       }`}
     >
-      {/* Animated background elements */}
+      {/* Modern geometric background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient orbs */}
+        {/* Glassmorphism cards floating */}
         <div
-          className={`absolute top-20 left-10 w-96 h-96 rounded-full opacity-20 blur-3xl animate-pulse ${
-            darkMode ? "bg-orange-600" : "bg-amber-400"
+          className={`absolute top-20 left-16 w-72 h-48 rounded-3xl opacity-40 blur-sm rotate-12 ${
+            darkMode 
+              ? "bg-gradient-to-br from-amber-900/30 to-orange-800/20 border border-amber-700/20" 
+              : "bg-gradient-to-br from-white/60 to-amber-100/40 border border-amber-200/30"
           }`}
-          style={{ animationDelay: "0s", animationDuration: "4s" }}
-        ></div>
-        <div
-          className={`absolute top-40 right-20 w-80 h-80 rounded-full opacity-15 blur-3xl animate-pulse ${
-            darkMode ? "bg-yellow-600" : "bg-orange-400"
-          }`}
-          style={{ animationDelay: "2s", animationDuration: "6s" }}
-        ></div>
-        <div
-          className={`absolute bottom-20 left-1/2 transform -translate-x-1/2 w-64 h-64 rounded-full opacity-25 blur-3xl animate-pulse ${
-            darkMode ? "bg-amber-600" : "bg-yellow-400"
-          }`}
-          style={{ animationDelay: "4s", animationDuration: "5s" }}
-        ></div>
-
-        {/* Bakery-themed floating elements */}
-        <div
-          className={`absolute top-1/4 right-1/3 text-6xl opacity-10 ${
-            darkMode ? "text-amber-400" : "text-orange-600"
-          }`}
-          style={{
-            animation: "float 8s ease-in-out infinite",
+          style={{ 
+            animation: "floatSlow 12s ease-in-out infinite",
+            backdropFilter: "blur(20px)"
           }}
-        >
-          🍞
-        </div>
-
+        ></div>
+        
         <div
-          className={`absolute bottom-1/3 left-1/4 text-5xl opacity-15 ${
-            darkMode ? "text-yellow-400" : "text-amber-600"
+          className={`absolute top-1/3 right-20 w-80 h-56 rounded-3xl opacity-30 blur-sm -rotate-6 ${
+            darkMode 
+              ? "bg-gradient-to-br from-orange-900/25 to-yellow-800/15 border border-orange-700/20" 
+              : "bg-gradient-to-br from-orange-100/70 to-yellow-100/50 border border-orange-200/40"
           }`}
-          style={{
-            animation: "float 6s ease-in-out infinite",
-            animationDelay: "2s",
-          }}
-        >
-          🥐
-        </div>
-
-        <div
-          className={`absolute top-1/2 left-1/6 text-4xl opacity-10 ${
-            darkMode ? "text-orange-400" : "text-yellow-600"
-          }`}
-          style={{
-            animation: "float 7s ease-in-out infinite",
-            animationDelay: "1s",
-          }}
-        >
-          🧁
-        </div>
-
-        <div
-          className={`absolute bottom-1/4 right-1/4 text-5xl opacity-15 ${
-            darkMode ? "text-amber-500" : "text-orange-500"
-          }`}
-          style={{
-            animation: "float 9s ease-in-out infinite",
+          style={{ 
+            animation: "floatSlow 15s ease-in-out infinite",
             animationDelay: "3s",
+            backdropFilter: "blur(20px)"
           }}
-        >
-          🥯
-        </div>
+        ></div>
 
-        {/* Floating crumb dots */}
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className={`absolute w-3 h-3 rounded-full opacity-20 ${
-              darkMode ? "bg-amber-500" : "bg-orange-400"
-            }`}
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float ${3 + Math.random() * 4}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 2}s`,
-            }}
-          />
-        ))}
+        <div
+          className={`absolute bottom-32 left-1/4 w-64 h-64 rounded-full opacity-20 ${
+            darkMode ? "bg-gradient-to-r from-amber-600/30 to-orange-500/20" : "bg-gradient-to-r from-amber-400/40 to-orange-300/30"
+          }`}
+          style={{ 
+            animation: "pulse 8s ease-in-out infinite",
+            filter: "blur(40px)"
+          }}
+        ></div>
+
+        {/* Modern grid pattern */}
+        <div
+          className={`absolute inset-0 opacity-10 ${darkMode ? "opacity-5" : ""}`}
+          style={{
+            backgroundImage: `linear-gradient(${darkMode ? "rgba(245,158,11,0.1)" : "rgba(180,83,9,0.1)"} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? "rgba(245,158,11,0.1)" : "rgba(180,83,9,0.1)"} 1px, transparent 1px)`,
+            backgroundSize: "60px 60px",
+          }}
+        ></div>
       </div>
 
-      {/* Subtle pattern overlay */}
-      <div
-        className="absolute inset-0 opacity-5"
-        style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, ${
-            darkMode ? "rgba(255,165,0,0.3)" : "rgba(139,69,19,0.3)"
-          } 2px, transparent 0)`,
-          backgroundSize: "50px 50px",
-        }}
-      ></div>
-
-      {/* Header */}
-      <header className="relative z-20 flex justify-between items-center p-6">
-        <div className="flex items-center gap-3">
+      {/* Header with modern navbar */}
+      <header className="relative z-20 flex justify-between items-center p-8">
+        <div className="flex items-center gap-4">
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 ${
-              darkMode
-                ? "bg-gradient-to-r from-amber-700 to-orange-700 hover:from-amber-600 hover:to-orange-600"
-                : "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
-            }`}
-          >
-            <span className="text-xl font-bold text-white">T&S</span>
-          </div>
-          <span
-            className={`font-semibold text-lg transition-colors duration-300 ${
-              darkMode ? "text-amber-200" : "text-amber-800"
-            }`}
-          >
-            Bakery Chain
-          </span>
-        </div>
-
-        <button
-          onClick={toggleDarkMode}
-          className={`group flex items-center gap-3 px-6 py-3 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg ${
-            darkMode
-              ? "bg-gray-800 hover:bg-gray-700 text-amber-200 border border-gray-600"
-              : "bg-white hover:bg-amber-50 text-amber-700 shadow-xl border border-amber-200"
-          }`}
-        >
-          <span
-            className={`text-xl transition-transform duration-300 group-hover:rotate-180 ${
-              darkMode ? "text-yellow-400" : "text-amber-600"
-            }`}
-          >
-            {darkMode ? "☀️" : "🌙"}
-          </span>
-          <span className="text-sm font-medium">
-            {darkMode ? "Light Mode" : "Dark Mode"}
-          </span>
-        </button>
-      </header>
-
-      {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 -mt-20">
-        {/* Hero section */}
-        <div className="text-center mb-12 max-w-4xl">
-          {/* Logo */}
-          <div
-            className={`inline-flex p-8 rounded-3xl mb-8 transition-all duration-500 hover:scale-110 hover:rotate-2 ${
-              darkMode
-                ? "bg-gray-800/70 backdrop-blur-md border border-amber-700 shadow-2xl"
-                : "bg-white/90 backdrop-blur-md border border-amber-200 shadow-2xl"
-            }`}
-          >
-            <span
-              className="text-7xl"
-              style={{
-                animation: "bounce 2s ease-in-out infinite",
-              }}
-            >
-              🥖
-            </span>
-          </div>
-
-          {/* Title */}
-          <h1
-            className={`text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight transition-all duration-500 ${
-              darkMode
-                ? "text-transparent bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-400 bg-clip-text"
-                : "text-transparent bg-gradient-to-r from-amber-800 via-orange-700 to-yellow-700 bg-clip-text"
-            }`}
-          >
-            T & S Bakery Chain
-          </h1>
-
-          <p
-            className={`text-xl md:text-2xl mb-8 font-light leading-relaxed transition-colors duration-500 ${
-              darkMode ? "text-amber-300" : "text-amber-700"
-            }`}
-          >
-            Crafting excellence, one loaf at a time
-          </p>
-
-          {/* Status badge */}
-          <div
-            className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 ${
-              darkMode
-                ? "bg-gray-800/60 text-amber-200 border border-amber-700"
-                : "bg-amber-50 text-amber-800 border border-amber-300"
-            }`}
-          >
-            <div
-              className={`w-3 h-3 rounded-full animate-pulse ${
-                darkMode ? "bg-amber-400" : "bg-amber-600"
-              }`}
-            ></div>
-            <span>Fresh • Local • Artisanal</span>
-          </div>
-        </div>
-
-        {/* CTA Button */}
-        <div className="relative group mb-8">
-          <div
-            className={`absolute -inset-1 rounded-2xl blur opacity-60 transition-opacity duration-300 group-hover:opacity-100 ${
+            className={`relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-300 hover:scale-110 overflow-hidden ${
               darkMode
                 ? "bg-gradient-to-r from-amber-600 to-orange-600"
                 : "bg-gradient-to-r from-amber-500 to-orange-500"
             }`}
-          ></div>
+          >
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+            <span className="relative z-10 text-2xl font-bold text-white">T&S</span>
+          </div>
+          <div>
+            <h2 className={`font-bold text-xl transition-colors duration-300 ${
+              darkMode ? "text-white" : "text-gray-900"
+            }`}>
+              T&S Bakery
+            </h2>
+            <p className={`text-sm transition-colors duration-300 ${
+              darkMode ? "text-amber-300" : "text-amber-700"
+            }`}>
+              Premium Chain
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Navigation pills */}
+          {/* <nav className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl backdrop-blur-md transition-all duration-300 ${
+            darkMode 
+              ? "bg-white/5 border border-white/10" 
+              : "bg-white/60 border border-white/40"
+          }`}>
+            <span className={`px-4 py-2 text-sm font-medium transition-colors ${
+              darkMode ? "text-amber-300" : "text-amber-700"
+            }`}>Menu</span>
+            <span className={`px-4 py-2 text-sm font-medium transition-colors ${
+              darkMode ? "text-gray-400" : "text-gray-600"
+            }`}>About</span>
+            <span className={`px-4 py-2 text-sm font-medium transition-colors ${
+              darkMode ? "text-gray-400" : "text-gray-600"
+            }`}>Contact</span>
+          </nav> */}
 
           <button
-            onClick={handleGetStarted}
-            className={`relative px-10 py-5 text-xl font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 focus:outline-none focus:ring-4 active:scale-95 ${
+            onClick={toggleDarkMode}
+            className={`group flex items-center gap-2 px-5 py-3 rounded-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 ${
               darkMode
-                ? "bg-gradient-to-r from-amber-700 to-orange-700 hover:from-amber-600 hover:to-orange-600 text-white shadow-2xl focus:ring-amber-500"
-                : "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-2xl focus:ring-amber-400"
+                ? "bg-white/10 hover:bg-white/15 text-amber-200 border border-white/20"
+                : "bg-white/70 hover:bg-white/90 text-amber-700 border border-white/50 shadow-lg"
             }`}
           >
-            <span className="relative z-10 flex items-center gap-3">
-              <span>Get Started</span>
-              <span className="text-2xl transition-transform duration-300 group-hover:translate-x-2">
-                →
-              </span>
+            <span className={`text-lg transition-all duration-300 group-hover:scale-110 ${
+              darkMode ? "text-yellow-400" : "text-amber-600"
+            }`}>
+              {darkMode ? "☀️" : "🌙"}
+            </span>
+            <span className="text-sm font-medium hidden sm:block">
+              {darkMode ? "Light" : "Dark"}
             </span>
           </button>
         </div>
+      </header>
 
-        {/* Bottom text */}
-        <div className="text-center">
-          <p
-            className={`text-sm transition-colors duration-500 ${
-              darkMode ? "text-amber-500" : "text-amber-600"
-            }`}
-          >
-            Join thousands of satisfied customers worldwide
+      {/* Main hero content */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 -mt-24">
+        
+        {/* Hero badge */}
+        {/* <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-sm font-medium mb-8 backdrop-blur-md transition-all duration-300 hover:scale-105 ${
+          darkMode
+            ? "bg-white/10 text-amber-200 border border-amber-500/30"
+            : "bg-white/80 text-amber-800 border border-amber-300/50 shadow-lg"
+        }`}>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${
+            darkMode ? "bg-amber-400" : "bg-amber-600"
+          }`}></div>
+          <span>Est. 2010 • Award Winning • Artisan Crafted</span>
+        </div> */}
+
+        {/* Main title with modern typography */}
+        <div className="text-center mb-12 max-w-5xl">
+          <h1 className={`text-6xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight tracking-tight ${
+            darkMode
+              ? "text-transparent bg-gradient-to-r from-white via-amber-200 to-orange-300 bg-clip-text"
+              : "text-transparent bg-gradient-to-r from-gray-900 via-amber-800 to-orange-700 bg-clip-text"
+          }`}>
+            Premium
+            <br />
+            <span className={`${
+              darkMode 
+                ? "text-transparent bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text"
+                : "text-transparent bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text"
+            }`}>
+              Bakery Experience
+            </span>
+          </h1>
+
+          <p className={`text-xl md:text-2xl font-light leading-relaxed max-w-3xl mx-auto transition-colors duration-500 ${
+            darkMode ? "text-gray-300" : "text-gray-700"
+          }`}>
+            Where traditional craftsmanship meets modern innovation. 
+            <br />
+            Experience the finest baked goods in the city.
           </p>
         </div>
+
+        {/* Modern CTA section */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center mb-16">
+          <button
+            onClick={handleGetStarted}
+            className={`group relative px-12 py-5 text-lg font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 focus:outline-none focus:ring-4 active:scale-95 overflow-hidden ${
+              darkMode
+                ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-2xl focus:ring-amber-500/50"
+                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-2xl focus:ring-amber-400/50"
+            }`}
+          >
+            <div className="absolute inset-0 bg-white/20 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            <span className="relative z-10 flex items-center gap-3">
+              Let's Start
+              <span className="transition-transform duration-300 group-hover:translate-x-2">
+                ✨
+              </span>
+            </span>
+          </button>
+
+          {/* <button
+            className={`px-8 py-5 text-lg font-medium rounded-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 border-2 ${
+              darkMode
+                ? "text-amber-200 border-amber-500/50 hover:bg-amber-500/10 hover:border-amber-400"
+                : "text-amber-700 border-amber-300 hover:bg-amber-50 hover:border-amber-400 bg-white/30"
+            }`}
+          >
+            Our Story
+          </button> */}
+        </div>
+
+        {/* Feature highlights */}
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+          {[
+            { icon: "🥐", title: "Fresh Daily", desc: "Baked fresh every morning" },
+            { icon: "🌾", title: "Local Ingredients", desc: "Sourced from local farms" },
+            { icon: "👨‍🍳", title: "Master Bakers", desc: "Crafted by experts" }
+          ].map((feature, index) => (
+            <div
+              key={index}
+              className={`group p-6 rounded-3xl backdrop-blur-md transition-all duration-300 hover:scale-105 hover:-translate-y-2 ${
+                darkMode
+                  ? "bg-white/5 border border-white/10 hover:bg-white/10"
+                  : "bg-white/60 border border-white/40 hover:bg-white/80 shadow-lg"
+              }`}
+            >
+              <div className="text-4xl mb-4 transition-transform duration-300 group-hover:scale-110">
+                {feature.icon}
+              </div>
+              <h3 className={`text-lg font-semibold mb-2 ${
+                darkMode ? "text-white" : "text-gray-900"
+              }`}>
+                {feature.title}
+              </h3>
+              <p className={`text-sm ${
+                darkMode ? "text-gray-300" : "text-gray-600"
+              }`}>
+                {feature.desc}
+              </p>
+            </div>
+          ))}
+        </div> */}
       </div>
 
       <style jsx>{`
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px) translateX(0px) rotate(0deg);
-            opacity: 0.1;
-          }
-          25% {
-            transform: translateY(-15px) translateX(5px) rotate(5deg);
-            opacity: 0.2;
+        @keyframes floatSlow {
+          0%, 100% {
+            transform: translateY(0px) rotate(12deg);
           }
           50% {
-            transform: translateY(-25px) translateX(15px) rotate(-5deg);
-            opacity: 0.15;
-          }
-          75% {
-            transform: translateY(-10px) translateX(8px) rotate(3deg);
-            opacity: 0.2;
+            transform: translateY(-20px) rotate(15deg);
           }
         }
 
-        @keyframes bounce {
-          0%,
-          20%,
-          53%,
-          80%,
-          100% {
-            animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-            transform: translate3d(0, 0, 0);
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.2;
           }
-          40%,
-          43% {
-            animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-            transform: translate3d(0, -8px, 0);
-          }
-          70% {
-            animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-            transform: translate3d(0, -4px, 0);
-          }
-          90% {
-            transform: translate3d(0, -2px, 0);
+          50% {
+            transform: scale(1.1);
+            opacity: 0.3;
           }
         }
       `}</style>

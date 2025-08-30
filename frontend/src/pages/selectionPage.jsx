@@ -21,67 +21,6 @@ const SHOPS = [
   "Maharagama C",
 ];
 
-const BASE_BAKERY_ITEMS = [
-  "Normal bread",
-  "Sandwich bread",
-  "Half bread",
-  "1/2 rose bread",
-  "1/4 rose bread",
-  "Tea bun",
-  "Dagara bun",
-  "Dot bun",
-  "Cream bun",
-  "Viyana Roll",
-  "Jam bun",
-  "Fish bun",
-  "Sinisambol bun",
-  "Othana Sausages",
-  "Vegetable Bun",
-  "Fish pastry",
-  "Egg Pastry",
-  "Sausages Pastry",
-  "Fish Roll",
-  "Egg Roll",
-  "Vegetable Rotty",
-  "Fish Rotty",
-  "Chicken Pastry",
-  "Wade",
-  "patty -Vegetable",
-  "Patty -fish",
-  "Egg Bun",
-  "Sausages Bun",
-  "Hot dog",
-  "Burger -Chicken",
-  "Burger -Egg Bullseye",
-  "Devel Sausages",
-  "Omlet Bun",
-  "Umbalakada Bun",
-  "Semon Bun",
-  "Fish finger",
-  "Drumstick -Chicken",
-  "Fish Cake",
-  "Egg Pizza",
-  "Sausages Pizza -cheese",
-  "Sandwich -Egg",
-  "Sandwich -fish",
-  "Sandwich -Cheese",
-  "string Hoppers",
-  "Helapa",
-  "Levaria",
-  "Spanchi -Vanila",
-  "Spanchi -Chocolate",
-  "Cup Cake",
-  "Daughnut",
-  "Rock Bun",
-  "Gnanakatha",
-  "Pol Cake",
-  "Swiss Roll",
-  "Butter Cake",
-  "100 Baby crush",
-  "1/4 Side Rosed",
-  "1/2 Side Rosed"
-];
-
 // Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
@@ -148,136 +87,179 @@ export default function SelectionPage() {
   }, []);
 
   const getBakeryItemsForShop = useCallback((shop) => {
-    const shopSpecificItems = shopItemsData
-      .filter(item => item.shop === shop)
-      .map(item => item.itemName);
-    
-    // Combine base items with shop-specific items, maintaining base order
-    const allItems = [...BASE_BAKERY_ITEMS, ...shopSpecificItems];
-    // Remove duplicates while preserving order
-    return [...new Set(allItems)];
-  }, [shopItemsData]);
+    try {
+      // Get all items for the shop and sort them by order field
+      const shopSpecificItems = shopItemsData
+        .filter(item => item.shop === shop)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(item => item.itemName);
+      
+      return [...new Set(shopSpecificItems)];
+    } catch (error) {
+      console.error("Error getting bakery items for shop:", error);
+      showToast("Error loading items for shop", "error");
+      return [];
+    }
+  }, [shopItemsData, showToast]);
 
   const BAKERY_ITEMS = useMemo(() => {
     return getBakeryItemsForShop(filters.shop);
   }, [getBakeryItemsForShop, filters.shop]);
 
   const navigateDate = useCallback((days) => {
-    const currentDate = new Date(filters.date);
-    currentDate.setDate(currentDate.getDate() + days);
-    const newDate = currentDate.toISOString().split("T")[0];
-    handleFilterChange("date", newDate);
+    try {
+      const currentDate = new Date(filters.date);
+      if (isNaN(currentDate.getTime())) {
+        showToast("Invalid date format", "error");
+        return;
+      }
+      currentDate.setDate(currentDate.getDate() + days);
+      const newDate = currentDate.toISOString().split("T")[0];
+      handleFilterChange("date", newDate);
+    } catch (error) {
+      console.error("Error navigating date:", error);
+      showToast("Error changing date", "error");
+    }
   }, [filters.date]);
 
   const getItemPrice = useCallback((itemName, shop) => {
-    const priceRecord = priceData.find(
-      (price) => price.itemName === itemName && price.shop === shop
-    );
-    return priceRecord ? parseFloat(priceRecord.price) || 0 : null;
+    try {
+      if (!itemName || !shop) return null;
+      const priceRecord = priceData.find(
+        (price) => price.itemName === itemName && price.shop === shop
+      );
+      return priceRecord ? parseFloat(priceRecord.price) || 0 : null;
+    } catch (error) {
+      console.error("Error getting item price:", error);
+      return null;
+    }
   }, [priceData]);
 
   const getPreviousDayRemaining = useCallback((itemName, shop, currentDate) => {
-    if (!itemName || !shop || !currentDate) return 0;
+    try {
+      if (!itemName || !shop || !currentDate) return 0;
 
-    const currentDateObj = new Date(currentDate);
-    const previousDate = new Date(currentDateObj);
-    previousDate.setDate(previousDate.getDate() - 1);
-    const previousDateStr = previousDate.toISOString().split("T")[0];
+      const currentDateObj = new Date(currentDate);
+      if (isNaN(currentDateObj.getTime())) return 0;
+      
+      const previousDate = new Date(currentDateObj);
+      previousDate.setDate(previousDate.getDate() - 1);
+      const previousDateStr = previousDate.toISOString().split("T")[0];
 
-    const previousDayData = inventoryData.find(
-      (item) =>
-        item.itemName === itemName &&
-        item.shop === shop &&
-        item.date === previousDateStr
-    );
+      const previousDayData = inventoryData.find(
+        (item) =>
+          item.itemName === itemName &&
+          item.shop === shop &&
+          item.date === previousDateStr
+      );
 
-    return previousDayData ? parseInt(previousDayData.remainingInventory) || 0 : 0;
+      return previousDayData ? parseInt(previousDayData.remainingInventory) || 0 : 0;
+    } catch (error) {
+      console.error("Error getting previous day remaining:", error);
+      return 0;
+    }
   }, [inventoryData]);
 
   const completeTableData = useMemo(() => {
-    const { shop, date } = filters;
-    if (!shop || !date) return [];
+    try {
+      const { shop, date } = filters;
+      if (!shop || !date) return [];
 
-    return BAKERY_ITEMS.map((itemName) => {
-      const existingData = inventoryData.find(
-        (item) =>
-          item.itemName === itemName && item.shop === shop && item.date === date
-      );
+      return BAKERY_ITEMS.map((itemName) => {
+        const existingData = inventoryData.find(
+          (item) =>
+            item.itemName === itemName && item.shop === shop && item.date === date
+        );
 
-      const itemKey = `${shop}_${date}_${itemName}`;
-      const sessionChange = sessionChanges[itemKey];
-      const previousDayRemaining = getPreviousDayRemaining(itemName, shop, date);
-      const itemPrice = getItemPrice(itemName, shop);
+        const itemKey = `${shop}_${date}_${itemName}`;
+        const sessionChange = sessionChanges[itemKey];
+        const previousDayRemaining = getPreviousDayRemaining(itemName, shop, date);
+        const itemPrice = getItemPrice(itemName, shop);
 
-      const morningTime = sessionChange
-        ? parseInt(sessionChange.morningTime) || 0
-        : parseInt(existingData?.morningTime) || 0;
+        const morningTime = sessionChange
+          ? parseInt(sessionChange.morningTime) || 0
+          : parseInt(existingData?.morningTime) || 0;
 
-      const eveningTime = sessionChange
-        ? parseInt(sessionChange.eveningTime) || 0
-        : parseInt(existingData?.eveningTime) || 0;
+        const eveningTime = sessionChange
+          ? parseInt(sessionChange.eveningTime) || 0
+          : parseInt(existingData?.eveningTime) || 0;
 
-      const extraIn = sessionChange
-        ? parseInt(sessionChange.extraIn) || 0
-        : parseInt(existingData?.extraIn) || 0;
+        const extraIn = sessionChange
+          ? parseInt(sessionChange.extraIn) || 0
+          : parseInt(existingData?.extraIn) || 0;
 
-      const transferOut = sessionChange
-        ? parseInt(sessionChange.transferOut) || 0
-        : parseInt(existingData?.transferOut) || 0;
+        const transferOut = sessionChange
+          ? parseInt(sessionChange.transferOut) || 0
+          : parseInt(existingData?.transferOut) || 0;
 
-      const discard = sessionChange
-        ? parseInt(sessionChange.discard) || 0
-        : parseInt(existingData?.discard) || 0;
+        const discard = sessionChange
+          ? parseInt(sessionChange.discard) || 0
+          : parseInt(existingData?.discard) || 0;
 
-      const remainingInventory = sessionChange
-        ? parseInt(sessionChange.remainingInventory) || 0
-        : parseInt(existingData?.remainingInventory) || 0;
+        const remainingInventory = sessionChange
+          ? parseInt(sessionChange.remainingInventory) || 0
+          : parseInt(existingData?.remainingInventory) || 0;
 
-      const startingInventory = previousDayRemaining + morningTime + eveningTime + extraIn;
-      const selling = Math.max(0, startingInventory - remainingInventory - transferOut - discard);
-      const totalValue = itemPrice !== null ? selling * itemPrice : null;
+        const startingInventory = previousDayRemaining + morningTime + eveningTime + extraIn;
+        const selling = Math.max(0, startingInventory - remainingInventory - transferOut - discard);
+        const totalValue = itemPrice !== null ? selling * itemPrice : null;
 
-      return {
-        id: itemKey,
-        itemName,
-        shop,
-        date,
-        previousDayRemaining,
-        morningTime,
-        eveningTime,
-        extraIn,
-        startingInventory,
-        selling,
-        transferOut,
-        discard,
-        remainingInventory,
-        price: itemPrice,
-        totalValue,
-        isExisting: !!existingData,
-        firestoreId: existingData?.id,
-        hasChanges: !!sessionChange,
-        hasPriceMissing: itemPrice === null,
-      };
-    });
-  }, [BAKERY_ITEMS, inventoryData, filters, getPreviousDayRemaining, sessionChanges, getItemPrice]);
+        return {
+          id: itemKey,
+          itemName,
+          shop,
+          date,
+          previousDayRemaining,
+          morningTime,
+          eveningTime,
+          extraIn,
+          startingInventory,
+          selling,
+          transferOut,
+          discard,
+          remainingInventory,
+          price: itemPrice,
+          totalValue,
+          isExisting: !!existingData,
+          firestoreId: existingData?.id,
+          hasChanges: !!sessionChange,
+          hasPriceMissing: itemPrice === null,
+        };
+      });
+    } catch (error) {
+      console.error("Error computing table data:", error);
+      showToast("Error processing inventory data", "error");
+      return [];
+    }
+  }, [BAKERY_ITEMS, inventoryData, filters, getPreviousDayRemaining, sessionChanges, getItemPrice, showToast]);
 
   const itemsWithMissingPrices = useMemo(() => {
-    return completeTableData.filter((item) => {
-      const hasInventoryData =
-        item.eveningTime > 0 ||
-        item.extraIn > 0 ||
-        item.morningTime > 0 ||
-        item.remainingInventory > 0 ||
-        item.transferOut > 0 ||
-        item.discard > 0;
-      return hasInventoryData && item.hasPriceMissing;
-    });
+    try {
+      return completeTableData.filter((item) => {
+        const hasInventoryData =
+          item.eveningTime > 0 ||
+          item.extraIn > 0 ||
+          item.morningTime > 0 ||
+          item.remainingInventory > 0 ||
+          item.transferOut > 0 ||
+          item.discard > 0;
+        return hasInventoryData && item.hasPriceMissing;
+      });
+    } catch (error) {
+      console.error("Error finding items with missing prices:", error);
+      return [];
+    }
   }, [completeTableData]);
 
   const totalSalesValue = useMemo(() => {
-    return completeTableData.reduce((sum, item) => {
-      return sum + (item.totalValue || 0);
-    }, 0);
+    try {
+      return completeTableData.reduce((sum, item) => {
+        return sum + (item.totalValue || 0);
+      }, 0);
+    } catch (error) {
+      console.error("Error calculating total sales value:", error);
+      return 0;
+    }
   }, [completeTableData]);
 
   const fetchInventoryData = useCallback(async () => {
@@ -298,6 +280,7 @@ export default function SelectionPage() {
           ...doc.data(),
         }));
       } catch (inventoryError) {
+        console.warn("Failed to fetch inventory with ordering, trying without:", inventoryError);
         const inventorySnapshot = await getDocs(inventoryRef);
         inventoryItems = inventorySnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -319,6 +302,7 @@ export default function SelectionPage() {
         }));
       } catch (pricesError) {
         console.warn("Failed to fetch prices:", pricesError);
+        showToast("Warning: Could not load price data", "warning");
       }
 
       let shopItems = [];
@@ -330,6 +314,7 @@ export default function SelectionPage() {
         }));
       } catch (shopItemsError) {
         console.warn("Failed to fetch shop items:", shopItemsError);
+        showToast("Warning: Could not load shop items data", "warning");
       }
 
       setInventoryData(inventoryItems);
@@ -339,11 +324,17 @@ export default function SelectionPage() {
 
     } catch (error) {
       console.error("Error fetching data:", error);
-      setError(error.message || "Failed to fetch data from Firestore");
+      const errorMessage = error.code === "permission-denied" 
+        ? "Permission denied. Please check your access rights."
+        : error.code === "unavailable"
+        ? "Database temporarily unavailable. Please try again."
+        : `Failed to fetch data: ${error.message}`;
+      
+      setError(errorMessage);
       setInventoryData([]);
       setPriceData([]);
       setShopItemsData([]);
-      showToast("Failed to load data", "error");
+      showToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -354,76 +345,106 @@ export default function SelectionPage() {
   }, [fetchInventoryData]);
 
   const handleFilterChange = useCallback((field, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    setEditedItems(new Set());
-    setSessionChanges({});
-    setHasUnsavedChanges(false);
-  }, []);
+    try {
+      setFilters((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+      setEditedItems(new Set());
+      setSessionChanges({});
+      setHasUnsavedChanges(false);
+      showToast(`${field === 'shop' ? 'Shop' : 'Date'} changed successfully`, "info");
+    } catch (error) {
+      console.error("Error handling filter change:", error);
+      showToast("Error updating filters", "error");
+    }
+  }, [showToast]);
 
   const handleCellEdit = useCallback((itemKey, field, value) => {
-    const numValue = parseInt(value) || 0;
-    const currentItem = completeTableData.find((item) => item.id === itemKey);
-    if (!currentItem) return;
+    try {
+      const numValue = parseInt(value) || 0;
+      if (numValue < 0) {
+        showToast("Values cannot be negative", "warning");
+        return;
+      }
 
-    setSessionChanges((prev) => {
-      const existing = prev[itemKey] || {};
-      const updated = { ...existing };
-      updated[field] = numValue;
+      const currentItem = completeTableData.find((item) => item.id === itemKey);
+      if (!currentItem) {
+        showToast("Item not found", "error");
+        return;
+      }
 
-      const morningTime = parseInt(updated.morningTime) || parseInt(currentItem.morningTime) || 0;
-      const eveningTime = parseInt(updated.eveningTime) || parseInt(currentItem.eveningTime) || 0;
-      const extraIn = parseInt(updated.extraIn) || parseInt(currentItem.extraIn) || 0;
-      const transferOut = parseInt(updated.transferOut) || parseInt(currentItem.transferOut) || 0;
-      const discard = parseInt(updated.discard) || parseInt(currentItem.discard) || 0;
-      const remainingInventory = parseInt(updated.remainingInventory) || parseInt(currentItem.remainingInventory) || 0;
+      setSessionChanges((prev) => {
+        const existing = prev[itemKey] || {};
+        const updated = { ...existing };
+        updated[field] = numValue;
 
-      const startingInventory = currentItem.previousDayRemaining + morningTime + eveningTime + extraIn;
-      const selling = Math.max(0, startingInventory - remainingInventory - transferOut - discard);
+        const morningTime = parseInt(updated.morningTime) || parseInt(currentItem.morningTime) || 0;
+        const eveningTime = parseInt(updated.eveningTime) || parseInt(currentItem.eveningTime) || 0;
+        const extraIn = parseInt(updated.extraIn) || parseInt(currentItem.extraIn) || 0;
+        const transferOut = parseInt(updated.transferOut) || parseInt(currentItem.transferOut) || 0;
+        const discard = parseInt(updated.discard) || parseInt(currentItem.discard) || 0;
+        const remainingInventory = parseInt(updated.remainingInventory) || parseInt(currentItem.remainingInventory) || 0;
 
-      updated.startingInventory = startingInventory;
-      updated.selling = selling;
-      updated.itemName = currentItem.itemName;
-      updated.shop = currentItem.shop;
-      updated.date = currentItem.date;
-      updated.previousDayRemaining = currentItem.previousDayRemaining;
-      updated.firestoreId = currentItem.firestoreId;
+        const startingInventory = currentItem.previousDayRemaining + morningTime + eveningTime + extraIn;
+        const selling = Math.max(0, startingInventory - remainingInventory - transferOut - discard);
 
-      return {
-        ...prev,
-        [itemKey]: updated,
-      };
-    });
+        updated.startingInventory = startingInventory;
+        updated.selling = selling;
+        updated.itemName = currentItem.itemName;
+        updated.shop = currentItem.shop;
+        updated.date = currentItem.date;
+        updated.previousDayRemaining = currentItem.previousDayRemaining;
+        updated.firestoreId = currentItem.firestoreId;
 
-    setEditedItems((prev) => new Set([...prev, itemKey]));
-    setHasUnsavedChanges(true);
-  }, [completeTableData]);
+        return {
+          ...prev,
+          [itemKey]: updated,
+        };
+      });
+
+      setEditedItems((prev) => new Set([...prev, itemKey]));
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error("Error handling cell edit:", error);
+      showToast("Error updating cell value", "error");
+    }
+  }, [completeTableData, showToast]);
 
   const handleAddItem = useCallback(async () => {
-    if (!newItemName.trim()) {
-      showToast("Please enter an item name", "warning");
-      return;
-    }
-
-    const currentShopItems = getBakeryItemsForShop(filters.shop);
-    if (currentShopItems.includes(newItemName.trim())) {
-      showToast("This item already exists for this shop", "warning");
-      return;
-    }
-
     try {
+      if (!newItemName.trim()) {
+        showToast("Please enter an item name", "warning");
+        return;
+      }
+
+      const currentShopItems = getBakeryItemsForShop(filters.shop);
+      if (currentShopItems.includes(newItemName.trim())) {
+        showToast("This item already exists for this shop", "warning");
+        return;
+      }
+
+      setSubmitting(true);
+      
+      // Get the highest order number for the current shop
+      const shopSpecificItems = shopItemsData
+        .filter(item => item.shop === filters.shop);
+      const maxOrder = shopSpecificItems.length > 0 
+        ? Math.max(...shopSpecificItems.map(item => item.order || 0)) 
+        : 0;
+
       const shopItemsRef = collection(firestore, "shopItems");
       await addDoc(shopItemsRef, {
         shop: filters.shop,
         itemName: newItemName.trim(),
+        order: maxOrder + 1,
         createdAt: new Date().toISOString(),
       });
 
       setShopItemsData(prev => [...prev, {
         shop: filters.shop,
         itemName: newItemName.trim(),
+        order: maxOrder + 1,
         createdAt: new Date().toISOString(),
       }]);
 
@@ -433,9 +454,14 @@ export default function SelectionPage() {
       showToast(`Item "${newItemName.trim()}" added to ${filters.shop}`, "success");
     } catch (error) {
       console.error("Error adding item:", error);
-      showToast("Failed to add item. Please try again.", "error");
+      const errorMessage = error.code === "permission-denied"
+        ? "Permission denied. Cannot add items."
+        : `Failed to add item: ${error.message}`;
+      showToast(errorMessage, "error");
+    } finally {
+      setSubmitting(false);
     }
-  }, [newItemName, filters.shop, getBakeryItemsForShop, showToast]);
+  }, [newItemName, filters.shop, getBakeryItemsForShop, shopItemsData, showToast]);
 
   const handleSaveChanges = useCallback(async () => {
     try {
@@ -468,30 +494,35 @@ export default function SelectionPage() {
       const inventoryRef = collection(firestore, "inventory");
 
       const savePromises = itemsToSave.map(async ([itemKey, changes]) => {
-        const dataToSave = {
-          date: changes.date,
-          shop: changes.shop,
-          itemName: changes.itemName,
-          previousDayRemaining: parseInt(changes.previousDayRemaining) || 0,
-          morningTime: parseInt(changes.morningTime) || 0,
-          eveningTime: parseInt(changes.eveningTime) || 0,
-          extraIn: parseInt(changes.extraIn) || 0,
-          startingInventory: parseInt(changes.startingInventory) || 0,
-          selling: parseInt(changes.selling) || 0,
-          transferOut: parseInt(changes.transferOut) || 0,
-          discard: parseInt(changes.discard) || 0,
-          remainingInventory: parseInt(changes.remainingInventory) || 0,
-          updatedAt: new Date().toISOString(),
-        };
+        try {
+          const dataToSave = {
+            date: changes.date,
+            shop: changes.shop,
+            itemName: changes.itemName,
+            previousDayRemaining: parseInt(changes.previousDayRemaining) || 0,
+            morningTime: parseInt(changes.morningTime) || 0,
+            eveningTime: parseInt(changes.eveningTime) || 0,
+            extraIn: parseInt(changes.extraIn) || 0,
+            startingInventory: parseInt(changes.startingInventory) || 0,
+            selling: parseInt(changes.selling) || 0,
+            transferOut: parseInt(changes.transferOut) || 0,
+            discard: parseInt(changes.discard) || 0,
+            remainingInventory: parseInt(changes.remainingInventory) || 0,
+            updatedAt: new Date().toISOString(),
+          };
 
-        if (changes.firestoreId) {
-          const docRef = doc(firestore, "inventory", changes.firestoreId);
-          await updateDoc(docRef, dataToSave);
-        } else {
-          await addDoc(inventoryRef, {
-            ...dataToSave,
-            createdAt: new Date().toISOString(),
-          });
+          if (changes.firestoreId) {
+            const docRef = doc(firestore, "inventory", changes.firestoreId);
+            await updateDoc(docRef, dataToSave);
+          } else {
+            await addDoc(inventoryRef, {
+              ...dataToSave,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        } catch (itemError) {
+          console.error(`Error saving item ${itemKey}:`, itemError);
+          throw new Error(`Failed to save ${changes.itemName}: ${itemError.message}`);
         }
       });
 
@@ -579,8 +610,9 @@ export default function SelectionPage() {
             <button
               onClick={fetchInventoryData}
               className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+              disabled={loading}
             >
-              Retry Loading Data
+              {loading ? "Loading..." : "Retry Loading Data"}
             </button>
           </div>
         )}
@@ -605,7 +637,7 @@ export default function SelectionPage() {
               onClick={() => navigate("/addPrice")}
               className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
             >
-              📝 Price Management
+              🏷 Price Management
             </button>
             <button
               onClick={() => navigate("/summary")}
@@ -726,6 +758,7 @@ export default function SelectionPage() {
               <button
                 onClick={() => setShowAddItemModal(true)}
                 className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors text-sm font-medium"
+                disabled={submitting}
               >
                 ➕ Add Item
               </button>
@@ -734,7 +767,7 @@ export default function SelectionPage() {
                   onClick={handleSaveChanges}
                   disabled={submitting}
                   className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200 font-medium disabled:opacity-50 text-sm"
-                >
+                  >
                   {submitting ? "💾 Saving..." : "💾 Save Changes"}
                 </button>
               )}
@@ -764,24 +797,27 @@ export default function SelectionPage() {
                     : "bg-white border-slate-300 text-slate-700"
                 }`}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !submitting) {
                     handleAddItem();
                   }
                 }}
+                disabled={submitting}
               />
               <div className="flex gap-3">
                 <button
                   onClick={handleAddItem}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
                 >
-                  Add Item
+                  {submitting ? "Adding..." : "Add Item"}
                 </button>
                 <button
                   onClick={() => {
                     setShowAddItemModal(false);
                     setNewItemName("");
                   }}
-                  className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  disabled={submitting}
+                  className={`px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 ${
                     isDarkMode
                       ? "bg-gray-600 hover:bg-gray-500 text-slate-200"
                       : "bg-gray-200 hover:bg-gray-300 text-slate-700"
@@ -808,7 +844,7 @@ export default function SelectionPage() {
                 isDarkMode ? "text-red-300" : "text-red-800"
               }`}
             >
-              ⚠️ Missing Prices Detected
+              Missing Prices Detected
             </div>
             <p
               className={`text-sm mb-3 ${
@@ -1010,6 +1046,33 @@ export default function SelectionPage() {
                       </div>
                     </td>
                   </tr>
+                ) : BAKERY_ITEMS.length === 0 ? (
+                  <tr>
+                    <td colSpan="12" className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <p
+                          className={`text-lg font-medium mb-2 ${
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          }`}
+                        >
+                          No items found for {filters.shop}
+                        </p>
+                        <p
+                          className={`text-sm mb-4 ${
+                            isDarkMode ? "text-slate-500" : "text-slate-400"
+                          }`}
+                        >
+                          Add some items to get started
+                        </p>
+                        <button
+                          onClick={() => setShowAddItemModal(true)}
+                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Add First Item
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   completeTableData.map((row) => {
                     const hasData =
@@ -1068,7 +1131,7 @@ export default function SelectionPage() {
                                 className="text-red-500 text-xs"
                                 title="Price missing"
                               >
-                                ⚠️
+                                !
                               </span>
                             )}
                           </div>

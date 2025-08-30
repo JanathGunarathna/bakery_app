@@ -27,6 +27,7 @@ export default function SummaryPage() {
   const [loading, setLoading] = useState(true);
   const [inventoryData, setInventoryData] = useState([]);
   const [priceData, setPriceData] = useState([]);
+  const [shopItemsData, setShopItemsData] = useState([]);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -43,6 +44,7 @@ export default function SummaryPage() {
   // Firestore collection references
   const inventoryRef = collection(firestore, "inventory");
   const pricesRef = collection(firestore, "prices");
+  const shopItemsRef = collection(firestore, "shopItems");
 
   // Navigation function
   const navigateToPage = useCallback(
@@ -61,6 +63,17 @@ export default function SummaryPage() {
       return priceRecord ? parseFloat(priceRecord.price) || 0 : null;
     },
     [priceData]
+  );
+
+  // Get item order from shopItems data
+  const getItemOrder = useCallback(
+    (itemName, shop) => {
+      const itemRecord = shopItemsData.find(
+        (item) => item.itemName === itemName && item.shop === shop
+      );
+      return itemRecord ? (itemRecord.order || 0) : 999999; // Default high order for items without explicit order
+    },
+    [shopItemsData]
   );
 
   // Fetch data from Firestore
@@ -86,18 +99,28 @@ export default function SummaryPage() {
         ...doc.data(),
       }));
 
+      // Fetch shop items data from shopItems collection
+      const shopItemsSnapshot = await getDocs(shopItemsRef);
+      const shopItems = shopItemsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
       setInventoryData(inventoryItems);
       setPriceData(priceItems);
+      setShopItemsData(shopItems);
       console.log("Fetched inventory data:", inventoryItems.length, "items");
       console.log("Fetched price data:", priceItems.length, "items");
+      console.log("Fetched shop items data:", shopItems.length, "items");
     } catch (error) {
       console.error("Error fetching data:", error);
 
       // Fallback without ordering
       try {
-        const [inventorySnapshot, priceSnapshot] = await Promise.all([
+        const [inventorySnapshot, priceSnapshot, shopItemsSnapshot] = await Promise.all([
           getDocs(inventoryRef),
           getDocs(pricesRef),
+          getDocs(shopItemsRef),
         ]);
 
         const inventoryItems = inventorySnapshot.docs.map((doc) => ({
@@ -106,6 +129,11 @@ export default function SummaryPage() {
         }));
 
         const priceItems = priceSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        const shopItems = shopItemsSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -119,16 +147,20 @@ export default function SummaryPage() {
 
         setInventoryData(inventoryItems);
         setPriceData(priceItems);
+        setShopItemsData(shopItems);
         console.log(
           "Fetched data (fallback) - inventory:",
           inventoryItems.length,
           "prices:",
-          priceItems.length
+          priceItems.length,
+          "shop items:",
+          shopItems.length
         );
       } catch (fallbackError) {
         console.error("Fallback fetch failed:", fallbackError);
         setInventoryData([]);
         setPriceData([]);
+        setShopItemsData([]);
       }
     } finally {
       setLoading(false);
@@ -230,17 +262,19 @@ export default function SummaryPage() {
     };
   }, [filteredInventoryData, getItemPrice]);
 
-  // Enhanced table data with prices
+  // Enhanced table data with prices and proper ordering
   const enhancedTableData = useMemo(() => {
-    return filteredInventoryData.map((item) => {
+    const processedData = filteredInventoryData.map((item) => {
       const itemPrice = getItemPrice(item.itemName, item.shop);
       const selling = parseInt(item.selling) || 0;
       const salesValue = itemPrice !== null ? selling * itemPrice : null;
+      const itemOrder = getItemOrder(item.itemName, item.shop);
 
       return {
         ...item,
         price: itemPrice,
         salesValue: salesValue,
+        itemOrder: itemOrder,
         addedInventory: parseInt(item.addedInventory) || 0,
         morningTime: parseInt(item.morningTime) || 0,
         eveningTime: parseInt(item.eveningTime) || 0,
@@ -251,7 +285,10 @@ export default function SummaryPage() {
         remainingInventory: parseInt(item.remainingInventory) || 0,
       };
     });
-  }, [filteredInventoryData, getItemPrice]);
+
+    // Sort by item order (same as PriceManagementPage)
+    return processedData.sort((a, b) => a.itemOrder - b.itemOrder);
+  }, [filteredInventoryData, getItemPrice, getItemOrder]);
 
   // Calculate cash balance
   const calculatedClosingBalance = useMemo(() => {
@@ -682,7 +719,7 @@ export default function SummaryPage() {
               isDarkMode ? "text-slate-200" : "text-slate-800"
             }`}
           >
-            🪧 Report Filters
+            🧪 Report Filters
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
