@@ -24,20 +24,36 @@ const SHOPS = [
 ];
 
 // Toast notification component
-const Toast = ({ toast, onRemove }) => {
+const Toast = ({ toast, onRemove, isDarkMode }) => {
   const getToastStyles = () => {
     const baseStyles = "fixed z-50 p-4 rounded-lg shadow-lg border transform transition-all duration-300 ease-in-out max-w-sm";
     
     switch (toast.type) {
       case 'success':
-        return `${baseStyles} bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300`;
+        return `${baseStyles} ${
+          isDarkMode 
+            ? "bg-green-900/30 border-green-700/50 text-green-300" 
+            : "bg-green-50 border-green-200 text-green-800"
+        }`;
       case 'error':
-        return `${baseStyles} bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300`;
+        return `${baseStyles} ${
+          isDarkMode 
+            ? "bg-red-900/30 border-red-700/50 text-red-300" 
+            : "bg-red-50 border-red-200 text-red-800"
+        }`;
       case 'warning':
-        return `${baseStyles} bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300`;
+        return `${baseStyles} ${
+          isDarkMode 
+            ? "bg-yellow-900/30 border-yellow-700/50 text-yellow-300" 
+            : "bg-yellow-50 border-yellow-200 text-yellow-800"
+        }`;
       case 'info':
       default:
-        return `${baseStyles} bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300`;
+        return `${baseStyles} ${
+          isDarkMode 
+            ? "bg-blue-900/30 border-blue-700/50 text-blue-300" 
+            : "bg-blue-50 border-blue-200 text-blue-800"
+        }`;
     }
   };
 
@@ -117,6 +133,8 @@ export default function AddPricePage({ onNavigate }) {
   const [reordering, setReordering] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newItemName, setNewItemName] = useState("");
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editingItemName, setEditingItemName] = useState("");
 
   // Firestore collection references
   const pricesRef = collection(firestore, "prices");
@@ -310,6 +328,105 @@ export default function AddPricePage({ onNavigate }) {
     },
     [selectedShop, getItemPrice, fetchPriceData, addToast]
   );
+
+  // Delete item
+  const handleDeleteItem = useCallback(
+    async (itemId, itemName) => {
+      if (
+        !window.confirm(
+          `Are you sure you want to delete "${itemName}" from ${selectedShop}? This will also delete its price if it exists.`
+        )
+      ) {
+        return;
+      }
+
+      try {
+        // Delete the item from shopItems collection
+        await deleteDoc(doc(firestore, "shopItems", itemId));
+        
+        // Also delete its price if it exists
+        const existingPrice = getItemPrice(itemName);
+        if (existingPrice.id) {
+          await deleteDoc(doc(firestore, "prices", existingPrice.id));
+        }
+
+        await fetchPriceData();
+        addToast(`"${itemName}" deleted successfully from ${selectedShop}!`, 'success');
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        addToast("Error deleting item. Please try again.", 'error');
+      }
+    },
+    [selectedShop, getItemPrice, fetchPriceData, addToast]
+  );
+
+  // Start editing item name
+  const handleStartEditItem = useCallback((itemId, currentName) => {
+    setEditingItemId(itemId);
+    setEditingItemName(currentName);
+  }, []);
+
+  // Cancel editing item name
+  const handleCancelEditItem = useCallback(() => {
+    setEditingItemId(null);
+    setEditingItemName("");
+  }, []);
+
+  // Save edited item name
+  const handleSaveEditItem = useCallback(async () => {
+    if (!editingItemName.trim()) {
+      addToast("Please enter a valid item name", 'warning');
+      return;
+    }
+
+    if (!editingItemId) {
+      return;
+    }
+
+    // Check if the new name already exists for this shop
+    const currentShopItems = getBakeryItemsForShop(selectedShop);
+    const nameExists = currentShopItems.some(item => 
+      item.name.toLowerCase() === editingItemName.trim().toLowerCase() && item.id !== editingItemId
+    );
+
+    if (nameExists) {
+      addToast("An item with this name already exists for this shop", 'error');
+      return;
+    }
+
+    try {
+      // Get the original item name before updating
+      const originalItemData = shopItemsData.find(item => item.id === editingItemId);
+      const originalItemName = originalItemData?.itemName;
+
+      // Update the item name in shopItems collection
+      const itemRef = doc(firestore, "shopItems", editingItemId);
+      await updateDoc(itemRef, {
+        itemName: editingItemName.trim(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // If there's a price for this item, update the price record with the new item name
+      if (originalItemName) {
+        const existingPrice = getItemPrice(originalItemName);
+        if (existingPrice.id) {
+          const priceRef = doc(firestore, "prices", existingPrice.id);
+          await updateDoc(priceRef, {
+            itemName: editingItemName.trim(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      setEditingItemId(null);
+      setEditingItemName("");
+      await fetchPriceData();
+      addToast(`Item name updated to "${editingItemName.trim()}" successfully!`, 'success');
+    } catch (error) {
+      console.error("Error updating item name:", error);
+      addToast("Error updating item name. Please try again.", 'error');
+    }
+  }, [editingItemId, editingItemName, selectedShop, getBakeryItemsForShop, shopItemsData, getItemPrice, fetchPriceData, addToast]);
 
   // Add new item to shop
   const handleAddItem = useCallback(async () => {
@@ -568,48 +685,49 @@ export default function AddPricePage({ onNavigate }) {
             key={toast.id}
             toast={{ ...toast, index }}
             onRemove={removeToast}
+            isDarkMode={isDarkMode}
           />
         ))}
       </div>
 
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <div className="container mx-auto px-3 py-4 max-w-6xl">
         {/* Header */}
-        <header className="text-center mb-8">
+        <header className="text-center mb-6">
           <div className="flex justify-between items-center mb-4">
             <button
               onClick={() => navigateToPage("/selection")}
-              className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-2 text-sm ${
                 isDarkMode
-                  ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                  : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                  ? "bg-gray-700 hover:bg-gray-600 text-slate-300"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
               }`}
             >
-              ← Back to Inventory
+              ← Back to Selection
             </button>
             <h1
-              className={`text-4xl md:text-5xl font-bold bg-gradient-to-r ${
+              className={`text-2xl md:text-3xl font-bold bg-gradient-to-r ${
                 isDarkMode
                   ? "from-purple-400 to-pink-400"
                   : "from-purple-600 to-pink-600"
-              } bg-clip-text text-transparent mb-3`}
+              } bg-clip-text text-transparent`}
             >
-              Price Management
+              💰 Price Management
             </h1>
             <button
               onClick={toggleDarkMode}
-              className={`p-3 rounded-full transition-all duration-300 ${
+              className={`p-2 rounded-full transition-all duration-300 text-sm ${
                 isDarkMode
                   ? "bg-yellow-500 hover:bg-yellow-400 text-gray-900"
                   : "bg-gray-800 hover:bg-gray-700 text-yellow-400"
-              } shadow-lg hover:shadow-xl transform hover:scale-110`}
+              } shadow-md hover:shadow-lg transform hover:scale-105`}
               title={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
             >
               {isDarkMode ? "☀️" : "🌙"}
             </button>
           </div>
           <p
-            className={`text-lg ${
-              isDarkMode ? "text-slate-300" : "text-slate-600"
+            className={`text-sm ${
+              isDarkMode ? "text-slate-300" : "text-gray-600"
             }`}
           >
             Set and manage prices for all bakery items across different shops
@@ -618,75 +736,69 @@ export default function AddPricePage({ onNavigate }) {
 
         {/* Navigation Buttons */}
         <section
-          className={`backdrop-blur-sm rounded-xl shadow-lg border p-6 mb-6 transition-colors duration-300 ${
+          className={`backdrop-blur-sm rounded-lg shadow-md border p-4 mb-4 transition-colors duration-300 ${
             isDarkMode
-              ? "bg-gray-800/80 border-gray-700/20"
-              : "bg-white/80 border-white/20"
+              ? "bg-gray-800/60 border-gray-700/30"
+              : "bg-white/60 border-white/30"
           }`}
         >
           <h2
-            className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
-              isDarkMode ? "text-slate-200" : "text-slate-800"
+            className={`text-base font-semibold mb-3 flex items-center gap-2 ${
+              isDarkMode ? "text-slate-200" : "text-gray-800"
             }`}
           >
             🔗 Quick Navigation
           </h2>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => navigateToPage("/selection")}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-md transition-all duration-200 font-medium shadow-md hover:shadow-lg text-sm"
             >
-              📋 Daily Inventory
+              📋 Selection Page
             </button>
             <button
               onClick={() => navigateToPage("/summary")}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-md transition-all duration-200 font-medium shadow-md hover:shadow-lg text-sm"
             >
-              📊 Summary Report
-            </button>
-            <button
-              onClick={() => navigateToPage("/summary")}
-              className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-            >
-              📄 PDF Report
+              📊 Summary Page
             </button>
           </div>
         </section>
 
         {/* Shop Selection and Controls */}
         <section
-          className={`backdrop-blur-sm rounded-xl shadow-lg border p-6 mb-6 transition-colors duration-300 ${
+          className={`backdrop-blur-sm rounded-lg shadow-md border p-4 mb-4 transition-colors duration-300 ${
             isDarkMode
-              ? "bg-gray-800/80 border-gray-700/20"
-              : "bg-white/80 border-white/20"
+              ? "bg-gray-800/60 border-gray-700/30"
+              : "bg-white/60 border-white/30"
           }`}
         >
           <h2
-            className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
-              isDarkMode ? "text-slate-200" : "text-slate-800"
+            className={`text-base font-semibold mb-3 flex items-center gap-2 ${
+              isDarkMode ? "text-slate-200" : "text-gray-800"
             }`}
           >
             🏪 Shop Selection & Controls
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div>
               <label
                 htmlFor="shop-select"
-                className={`block text-sm font-medium mb-2 ${
-                  isDarkMode ? "text-slate-300" : "text-slate-700"
+                className={`block text-xs font-medium mb-1 ${
+                  isDarkMode ? "text-slate-300" : "text-gray-700"
                 }`}
               >
-                Select Shop:
+                Shop:
               </label>
               <select
                 id="shop-select"
                 value={selectedShop}
                 onChange={(e) => setSelectedShop(e.target.value)}
-                className={`w-full border rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
+                className={`w-full border rounded-md px-2 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
                   isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-slate-200"
-                    : "bg-white border-slate-300 text-slate-700"
+                    ? "bg-gray-700/70 border-gray-600 text-slate-200"
+                    : "bg-white border-gray-300 text-gray-700"
                 }`}
               >
                 {SHOPS.map((shop) => (
@@ -700,8 +812,8 @@ export default function AddPricePage({ onNavigate }) {
             <div>
               <label
                 htmlFor="search-items"
-                className={`block text-sm font-medium mb-2 ${
-                  isDarkMode ? "text-slate-300" : "text-slate-700"
+                className={`block text-xs font-medium mb-1 ${
+                  isDarkMode ? "text-slate-300" : "text-gray-700"
                 }`}
               >
                 Search Items:
@@ -712,10 +824,10 @@ export default function AddPricePage({ onNavigate }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search bakery items..."
-                className={`w-full border rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
+                className={`w-full border rounded-md px-2 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${
                   isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-slate-200 placeholder-slate-400"
-                    : "bg-white border-slate-300 text-slate-700"
+                    ? "bg-gray-700/70 border-gray-600 text-slate-200 placeholder-slate-400"
+                    : "bg-white border-gray-300 text-gray-700"
                 }`}
               />
             </div>
@@ -725,11 +837,11 @@ export default function AddPricePage({ onNavigate }) {
                 <button
                   onClick={handleSavePrices}
                   disabled={submitting || reordering}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all duration-200 font-medium disabled:opacity-50 flex items-center gap-2"
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-2 rounded-md hover:shadow-md transition-all duration-200 font-medium disabled:opacity-50 flex items-center gap-2 text-sm"
                 >
                   {submitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                       Saving...
                     </>
                   ) : (
@@ -741,8 +853,8 @@ export default function AddPricePage({ onNavigate }) {
           </div>
 
           {/* Add New Item Section */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 className={`text-md font-semibold mb-2 ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <h3 className={`text-sm font-semibold mb-2 ${isDarkMode ? "text-slate-300" : "text-gray-700"}`}>
               ➕ Add New Item to {selectedShop}
             </h3>
             <div className="flex gap-2">
@@ -751,10 +863,10 @@ export default function AddPricePage({ onNavigate }) {
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder="Enter new item name"
-                className={`flex-1 border rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                className={`flex-1 border rounded-md px-2 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
                   isDarkMode
-                    ? "bg-gray-700 border-gray-600 text-slate-200"
-                    : "bg-white border-slate-300 text-slate-700"
+                    ? "bg-gray-700/70 border-gray-600 text-slate-200"
+                    : "bg-white border-gray-300 text-gray-700"
                 }`}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
@@ -764,9 +876,9 @@ export default function AddPricePage({ onNavigate }) {
               />
               <button
                 onClick={handleAddItem}
-                className="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+                className="px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-md transition-colors text-sm"
               >
-                Add Item
+                ➕ Add Item
               </button>
             </div>
           </div>
@@ -774,35 +886,35 @@ export default function AddPricePage({ onNavigate }) {
 
         {/* Statistics */}
         <section
-          className={`backdrop-blur-sm rounded-xl shadow-lg border p-6 mb-6 transition-colors duration-300 ${
+          className={`backdrop-blur-sm rounded-lg shadow-md border p-4 mb-4 transition-colors duration-300 ${
             isDarkMode
-              ? "bg-gradient-to-r from-purple-900/30 to-pink-900/30 border-purple-700/20"
-              : "bg-gradient-to-r from-purple-50/80 to-pink-50/80 border-purple-200/20"
+              ? "bg-gradient-to-r from-purple-900/40 to-pink-900/40 border-purple-700/30"
+              : "bg-gradient-to-r from-purple-50/60 to-pink-50/60 border-purple-200/30"
           }`}
         >
           <h2
-            className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
+            className={`text-base font-semibold mb-3 flex items-center gap-2 ${
               isDarkMode ? "text-purple-300" : "text-purple-800"
             }`}
           >
             📊 Price Coverage Statistics - {selectedShop}
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div
-              className={`text-center p-4 rounded-lg transition-colors duration-300 ${
+              className={`text-center p-3 rounded-md transition-colors duration-300 ${
                 isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
               }`}
             >
               <div
-                className={`text-2xl font-bold ${
+                className={`text-lg font-bold ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               >
                 {BAKERY_ITEMS.length}
               </div>
               <div
-                className={`text-sm ${
+                className={`text-xs ${
                   isDarkMode ? "text-blue-300" : "text-blue-700"
                 }`}
               >
@@ -811,19 +923,19 @@ export default function AddPricePage({ onNavigate }) {
             </div>
 
             <div
-              className={`text-center p-4 rounded-lg transition-colors duration-300 ${
+              className={`text-center p-3 rounded-md transition-colors duration-300 ${
                 isDarkMode ? "bg-green-900/30" : "bg-green-50"
               }`}
             >
               <div
-                className={`text-2xl font-bold ${
+                className={`text-lg font-bold ${
                   isDarkMode ? "text-green-400" : "text-green-600"
                 }`}
               >
                 {totalItemsWithPrices}
               </div>
               <div
-                className={`text-sm ${
+                className={`text-xs ${
                   isDarkMode ? "text-green-300" : "text-green-700"
                 }`}
               >
@@ -832,19 +944,19 @@ export default function AddPricePage({ onNavigate }) {
             </div>
 
             <div
-              className={`text-center p-4 rounded-lg transition-colors duration-300 ${
+              className={`text-center p-3 rounded-md transition-colors duration-300 ${
                 isDarkMode ? "bg-red-900/30" : "bg-red-50"
               }`}
             >
               <div
-                className={`text-2xl font-bold ${
+                className={`text-lg font-bold ${
                   isDarkMode ? "text-red-400" : "text-red-600"
                 }`}
               >
                 {BAKERY_ITEMS.length - totalItemsWithPrices}
               </div>
               <div
-                className={`text-sm ${
+                className={`text-xs ${
                   isDarkMode ? "text-red-300" : "text-red-700"
                 }`}
               >
@@ -853,19 +965,19 @@ export default function AddPricePage({ onNavigate }) {
             </div>
 
             <div
-              className={`text-center p-4 rounded-lg transition-colors duration-300 ${
+              className={`text-center p-3 rounded-md transition-colors duration-300 ${
                 isDarkMode ? "bg-yellow-900/30" : "bg-yellow-50"
               }`}
             >
               <div
-                className={`text-2xl font-bold ${
+                className={`text-lg font-bold ${
                   isDarkMode ? "text-yellow-400" : "text-yellow-600"
                 }`}
               >
                 {totalEditingPrices}
               </div>
               <div
-                className={`text-sm ${
+                className={`text-xs ${
                   isDarkMode ? "text-yellow-300" : "text-yellow-700"
                 }`}
               >
@@ -906,27 +1018,27 @@ export default function AddPricePage({ onNavigate }) {
 
         {/* Price Table */}
         <section
-          className={`backdrop-blur-sm rounded-xl shadow-xl border overflow-hidden transition-colors duration-300 ${
+          className={`backdrop-blur-sm rounded-lg shadow-md border overflow-hidden transition-colors duration-300 ${
             isDarkMode
-              ? "bg-gray-800/90 border-gray-700/20"
-              : "bg-white/90 border-white/20"
+              ? "bg-gray-800/70 border-gray-700/30"
+              : "bg-white/70 border-white/30"
           }`}
         >
           <div
-            className={`p-6 border-b ${
+            className={`p-4 border-b ${
               isDarkMode ? "border-slate-700" : "border-slate-200"
             }`}
           >
             <h2
-              className={`text-xl font-semibold flex items-center gap-2 ${
-                isDarkMode ? "text-slate-200" : "text-slate-800"
+              className={`text-base font-semibold flex items-center gap-2 ${
+                isDarkMode ? "text-slate-200" : "text-gray-800"
               }`}
             >
               💰 Price Table - {selectedShop}
             </h2>
             <p
-              className={`text-sm mt-1 ${
-                isDarkMode ? "text-slate-400" : "text-slate-600"
+              className={`text-xs mt-1 ${
+                isDarkMode ? "text-slate-400" : "text-gray-600"
               }`}
             >
               {searchQuery
@@ -966,28 +1078,28 @@ export default function AddPricePage({ onNavigate }) {
               >
                 <tr>
                   <th
-                    className={`px-6 py-4 text-left text-sm font-semibold ${
+                    className={`px-3 py-2 text-left text-xs font-semibold ${
                       isDarkMode ? "text-slate-300" : "text-slate-700"
                     }`}
                   >
                     Item Name
                   </th>
                   <th
-                    className={`px-6 py-4 text-center text-sm font-semibold ${
+                    className={`px-3 py-2 text-center text-xs font-semibold ${
                       isDarkMode ? "text-slate-300" : "text-slate-700"
                     }`}
                   >
                     Current Price (Rs.)
                   </th>
                   <th
-                    className={`px-6 py-4 text-center text-sm font-semibold ${
+                    className={`px-3 py-2 text-center text-xs font-semibold ${
                       isDarkMode ? "text-slate-300" : "text-slate-700"
                     }`}
                   >
                     New Price (Rs.)
                   </th>
                   <th
-                    className={`px-6 py-4 text-center text-sm font-semibold ${
+                    className={`px-3 py-2 text-center text-xs font-semibold ${
                       isDarkMode ? "text-slate-300" : "text-slate-700"
                     }`}
                   >
@@ -1002,11 +1114,11 @@ export default function AddPricePage({ onNavigate }) {
               >
                 {loading ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center">
+                    <td colSpan="4" className="px-3 py-8 text-center">
                       <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-4"></div>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mb-3"></div>
                         <p
-                          className={`text-lg font-medium ${
+                          className={`text-sm font-medium ${
                             isDarkMode ? "text-slate-400" : "text-slate-500"
                           }`}
                         >
@@ -1017,9 +1129,9 @@ export default function AddPricePage({ onNavigate }) {
                   </tr>
                 ) : filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center">
+                    <td colSpan="4" className="px-3 py-8 text-center">
                       <div
-                        className={`text-lg font-medium ${
+                        className={`text-sm font-medium ${
                           isDarkMode ? "text-slate-400" : "text-slate-500"
                         }`}
                       >
@@ -1030,6 +1142,7 @@ export default function AddPricePage({ onNavigate }) {
                 ) : (
                   filteredItems.map((item, filteredIndex) => {
                     const itemName = item.name;
+                    const itemId = item.id;
                     const { price: currentPrice, id: priceId } =
                       getItemPrice(itemName);
                     const priceKey = `${selectedShop}_${itemName}`;
@@ -1059,13 +1172,13 @@ export default function AddPricePage({ onNavigate }) {
                         }`}
                       >
                         <td
-                          className={`px-6 py-4 text-sm font-medium ${
+                          className={`px-3 py-3 text-xs font-medium ${
                             isDarkMode ? "text-slate-200" : "text-slate-800"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             <span
-                              className={`w-3 h-3 rounded-full ${
+                              className={`w-2 h-2 rounded-full ${
                                 hasUnsavedChanges
                                   ? "bg-yellow-500"
                                   : currentPrice !== null
@@ -1073,13 +1186,52 @@ export default function AddPricePage({ onNavigate }) {
                                   : "bg-red-500"
                               }`}
                             ></span>
-                            <span>{itemName}</span>
-                            <div className="flex ml-2 gap-1">
+                            
+                            {/* Item Name - Editable or Display */}
+                            {editingItemId === itemId ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={editingItemName}
+                                  onChange={(e) => setEditingItemName(e.target.value)}
+                                  className={`text-xs px-2 py-1 border rounded focus:ring-1 focus:ring-purple-500 ${
+                                    isDarkMode
+                                      ? "bg-gray-700 border-gray-600 text-slate-200"
+                                      : "bg-white border-slate-300 text-slate-700"
+                                  }`}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleSaveEditItem();
+                                    } else if (e.key === 'Escape') {
+                                      handleCancelEditItem();
+                                    }
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={handleSaveEditItem}
+                                  className="text-xs px-1 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={handleCancelEditItem}
+                                  className="text-xs px-1 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <span>{itemName}</span>
+                            )}
+                            
+                            {/* Move Up/Down Controls */}
+                            <div className="flex ml-1 gap-1">
                               <button
                                 onClick={() => handleMoveItemUp(itemName)}
-                                disabled={isFirst || reordering}
-                                className={`text-xs p-1.5 rounded transition-colors ${
-                                  isFirst || reordering
+                                disabled={isFirst || reordering || editingItemId === itemId}
+                                className={`text-xs p-1 rounded transition-colors ${
+                                  isFirst || reordering || editingItemId === itemId
                                     ? "opacity-30 cursor-not-allowed"
                                     : isDarkMode
                                     ? "hover:bg-gray-600 text-slate-300"
@@ -1091,9 +1243,9 @@ export default function AddPricePage({ onNavigate }) {
                               </button>
                               <button
                                 onClick={() => handleMoveItemDown(itemName)}
-                                disabled={isLast || reordering}
-                                className={`text-xs p-1.5 rounded transition-colors ${
-                                  isLast || reordering
+                                disabled={isLast || reordering || editingItemId === itemId}
+                                className={`text-xs p-1 rounded transition-colors ${
+                                  isLast || reordering || editingItemId === itemId
                                     ? "opacity-30 cursor-not-allowed"
                                     : isDarkMode
                                     ? "hover:bg-gray-600 text-slate-300"
@@ -1107,10 +1259,10 @@ export default function AddPricePage({ onNavigate }) {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-center">
+                        <td className="px-3 py-3 text-xs text-center">
                           {currentPrice !== null ? (
                             <span
-                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                 isDarkMode
                                   ? "bg-green-900/50 text-green-300"
                                   : "bg-green-100 text-green-800"
@@ -1120,7 +1272,7 @@ export default function AddPricePage({ onNavigate }) {
                             </span>
                           ) : (
                             <span
-                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                 isDarkMode
                                   ? "bg-red-900/50 text-red-300"
                                   : "bg-red-100 text-red-800"
@@ -1131,7 +1283,7 @@ export default function AddPricePage({ onNavigate }) {
                           )}
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-center">
+                        <td className="px-3 py-3 text-xs text-center">
                           <input
                             type="number"
                             step="0.01"
@@ -1144,8 +1296,8 @@ export default function AddPricePage({ onNavigate }) {
                             onChange={(e) =>
                               handlePriceEdit(itemName, e.target.value)
                             }
-                            disabled={reordering}
-                            className={`w-24 text-center border rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 disabled:opacity-50 ${
+                            disabled={reordering || editingItemId === itemId}
+                            className={`w-20 text-center border rounded px-2 py-1 focus:ring-1 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 disabled:opacity-50 ${
                               hasUnsavedChanges
                                 ? isDarkMode
                                   ? "border-yellow-500 bg-yellow-900/20 text-slate-200"
@@ -1162,21 +1314,56 @@ export default function AddPricePage({ onNavigate }) {
                           />
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-center">
-                          {currentPrice !== null && (
-                            <button
-                              onClick={() => handleDeletePrice(itemName)}
-                              disabled={reordering}
-                              className={`px-3 py-1.5 rounded-lg transition-colors text-xs disabled:opacity-50 ${
-                                isDarkMode
-                                  ? "bg-red-700 hover:bg-red-600 text-white"
-                                  : "bg-red-600 hover:bg-red-700 text-white"
-                              }`}
-                              title="Delete price"
-                            >
-                              🗑️ Delete
-                            </button>
-                          )}
+                        <td className="px-3 py-3 text-xs text-center">
+                          <div className="flex justify-center gap-1 flex-wrap">
+                            {/* Edit Item Button - Always visible unless currently editing this item */}
+                            {editingItemId !== itemId && (
+                              <button
+                                onClick={() => handleStartEditItem(itemId, itemName)}
+                                disabled={reordering || editingItemId !== null}
+                                className={`px-2 py-1 rounded transition-colors text-xs font-medium min-w-[50px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isDarkMode
+                                    ? "bg-blue-700 hover:bg-blue-600 text-white border border-blue-600"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white border border-blue-500"
+                                }`}
+                                title="Edit item name"
+                              >
+                                ✏️ Edit
+                              </button>
+                            )}
+
+                            {/* Delete Item Button - Always visible unless currently editing this item */}
+                            {editingItemId !== itemId && (
+                              <button
+                                onClick={() => handleDeleteItem(itemId, itemName)}
+                                disabled={reordering || editingItemId !== null}
+                                className={`px-2 py-1 rounded transition-colors text-xs font-medium min-w-[60px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isDarkMode
+                                    ? "bg-red-700 hover:bg-red-600 text-white border border-red-600"
+                                    : "bg-red-600 hover:bg-red-700 text-white border border-red-500"
+                                }`}
+                                title="Delete entire item"
+                              >
+                                🗑️ Delete
+                              </button>
+                            )}
+
+                            {/* Delete Price Button - Only show if item has a price */}
+                            {currentPrice !== null && editingItemId !== itemId && (
+                              <button
+                                onClick={() => handleDeletePrice(itemName)}
+                                disabled={reordering || editingItemId !== null}
+                                className={`px-2 py-1 rounded transition-colors text-xs font-medium min-w-[70px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isDarkMode
+                                    ? "bg-orange-700 hover:bg-orange-600 text-white border border-orange-600"
+                                    : "bg-orange-600 hover:bg-orange-700 text-white border border-orange-500"
+                                }`}
+                                title="Delete price only"
+                              >
+                                🚫 Clear Price
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1189,7 +1376,7 @@ export default function AddPricePage({ onNavigate }) {
 
         {/* Footer */}
         <footer
-          className={`text-center mt-8 py-6 text-sm ${
+          className={`text-center mt-6 py-4 text-xs ${
             isDarkMode ? "text-slate-400" : "text-slate-600"
           }`}
         >
