@@ -12,6 +12,7 @@ const SHOPS = [
   "Maharagama A",
   "Maharagama B",
   "Maharagama C",
+  "Bakery Outlet"
 ];
 
 const BEVERAGES = [
@@ -129,8 +130,10 @@ export default function SummaryPage() {
   const [shopItemsData, setShopItemsData] = useState([]);
 
   // Filter states
+  // Get shop from localStorage
+  const [shop, setShop] = useState(() => localStorage.getItem("selectedShop"));
   const [filters, setFilters] = useState({
-    shop: SHOPS[0],
+    shop: shop || SHOPS[0],
     date: new Date().toISOString().split("T")[0],
   });
 
@@ -139,6 +142,21 @@ export default function SummaryPage() {
   const [closingBalance, setClosingBalance] = useState(0);
 
   const navigate = useNavigate();
+
+  // Redirect to Welcome if no shop selected
+  useEffect(() => {
+    if (!shop) {
+      navigate("/");
+    }
+  }, [shop, navigate]);
+  // Add Change Shop button
+  const handleChangeShop = () => {
+    localStorage.removeItem("selectedShop");
+    navigate("/");
+  };
+  // ...existing code for rendering...
+  // Add a button somewhere in your main render:
+  // <button onClick={handleChangeShop} className="...">Change Shop</button>
 
   // Firestore collection references
   const inventoryRef = collection(firestore, "inventory");

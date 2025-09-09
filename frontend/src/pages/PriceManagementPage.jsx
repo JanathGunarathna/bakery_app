@@ -21,6 +21,7 @@ const SHOPS = [
   "Maharagama A",
   "Maharagama B",
   "Maharagama C",
+  "Bakery Outlet"
 ];
 
 // Toast notification component
@@ -124,7 +125,7 @@ export default function AddPricePage({ onNavigate }) {
   }, []);
 
   // State management
-  const [selectedShop, setSelectedShop] = useState(SHOPS[0]);
+
   const [priceData, setPriceData] = useState([]);
   const [shopItemsData, setShopItemsData] = useState([]);
   const [editingPrices, setEditingPrices] = useState({});
@@ -135,6 +136,15 @@ export default function AddPricePage({ onNavigate }) {
   const [newItemName, setNewItemName] = useState("");
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingItemName, setEditingItemName] = useState("");
+
+  const [selectedShop, setSelectedShop] = useState(() => {
+  return localStorage.getItem("selectedShop") || SHOPS[0];
+});
+
+useEffect(() => {
+  localStorage.setItem("selectedShop", selectedShop);
+}, [selectedShop]);
+
 
   // Firestore collection references
   const pricesRef = collection(firestore, "prices");

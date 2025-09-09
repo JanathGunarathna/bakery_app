@@ -10,6 +10,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { getDoc } from "firebase/firestore";
 
 const SHOPS = [
   "Katuwawala",
@@ -19,6 +20,7 @@ const SHOPS = [
   "Maharagama A",
   "Maharagama B",
   "Maharagama C",
+  "Bakery Outlet"
 ];
 
 const BEVERAGES = [
@@ -160,8 +162,9 @@ export default function SelectionPage() {
       const shopSpecificItems = shopItemsData
         .filter(item => item.shop === shop)
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(item => item.itemName);
-      
+        .map(item => item.itemName)
+        // Exclude beverages from bakery items
+        .filter(itemName => !BEVERAGES.includes(itemName));
       return [...new Set(shopSpecificItems)];
     } catch (error) {
       console.error("Error getting bakery items for shop:", error);
@@ -269,28 +272,28 @@ export default function SelectionPage() {
         const previousDayRemaining = getPreviousDayRemaining(itemName, shop, date);
         const itemPrice = getItemPrice(itemName, shop);
 
-        const morningTime = sessionChange
-          ? parseInt(sessionChange.morningTime) || 0
+        const morningTime = sessionChange && sessionChange.morningTime !== undefined
+          ? parseInt(sessionChange.morningTime)
           : parseInt(existingData?.morningTime) || 0;
 
-        const eveningTime = sessionChange
-          ? parseInt(sessionChange.eveningTime) || 0
+        const eveningTime = sessionChange && sessionChange.eveningTime !== undefined
+          ? parseInt(sessionChange.eveningTime)
           : parseInt(existingData?.eveningTime) || 0;
 
-        const extraIn = sessionChange
-          ? parseInt(sessionChange.extraIn) || 0
+        const extraIn = sessionChange && sessionChange.extraIn !== undefined
+          ? parseInt(sessionChange.extraIn)
           : parseInt(existingData?.extraIn) || 0;
 
-        const transferOut = sessionChange
-          ? parseInt(sessionChange.transferOut) || 0
+        const transferOut = sessionChange && sessionChange.transferOut !== undefined
+          ? parseInt(sessionChange.transferOut)
           : parseInt(existingData?.transferOut) || 0;
 
-        const discard = sessionChange
-          ? parseInt(sessionChange.discard) || 0
+        const discard = sessionChange && sessionChange.discard !== undefined
+          ? parseInt(sessionChange.discard)
           : parseInt(existingData?.discard) || 0;
 
-        const remainingInventory = sessionChange
-          ? parseInt(sessionChange.remainingInventory) || 0
+        const remainingInventory = sessionChange && sessionChange.remainingInventory !== undefined
+          ? parseInt(sessionChange.remainingInventory)
           : parseInt(existingData?.remainingInventory) || 0;
 
         const startingInventory = previousDayRemaining + morningTime + eveningTime + extraIn;
@@ -753,19 +756,29 @@ export default function SelectionPage() {
         savePromises.push(
           (async () => {
             try {
+              // Merge with existing Firestore data to preserve other session values
+              let mergedData = {};
+              if (changes.firestoreId) {
+                const docRef = doc(firestore, "inventory", changes.firestoreId);
+                const existingDoc = await getDoc(docRef);
+                if (existingDoc.exists()) {
+                  mergedData = existingDoc.data();
+                }
+              }
+              // Only update fields present in changes, preserve others
               const dataToSave = {
-                date: changes.date,
-                shop: changes.shop,
-                itemName: changes.itemName,
-                previousDayRemaining: parseInt(changes.previousDayRemaining) || 0,
-                morningTime: parseInt(changes.morningTime) || 0,
-                eveningTime: parseInt(changes.eveningTime) || 0,
-                extraIn: parseInt(changes.extraIn) || 0,
-                startingInventory: parseInt(changes.startingInventory) || 0,
-                selling: parseInt(changes.selling) || 0,
-                transferOut: parseInt(changes.transferOut) || 0,
-                discard: parseInt(changes.discard) || 0,
-                remainingInventory: parseInt(changes.remainingInventory) || 0,
+                date: changes.date ?? mergedData.date,
+                shop: changes.shop ?? mergedData.shop,
+                itemName: changes.itemName ?? mergedData.itemName,
+                previousDayRemaining: changes.previousDayRemaining !== undefined ? parseInt(changes.previousDayRemaining) : mergedData.previousDayRemaining ?? 0,
+                morningTime: changes.morningTime !== undefined ? parseInt(changes.morningTime) : mergedData.morningTime ?? 0,
+                eveningTime: changes.eveningTime !== undefined ? parseInt(changes.eveningTime) : mergedData.eveningTime ?? 0,
+                extraIn: changes.extraIn !== undefined ? parseInt(changes.extraIn) : mergedData.extraIn ?? 0,
+                startingInventory: changes.startingInventory !== undefined ? parseInt(changes.startingInventory) : mergedData.startingInventory ?? 0,
+                selling: changes.selling !== undefined ? parseInt(changes.selling) : mergedData.selling ?? 0,
+                transferOut: changes.transferOut !== undefined ? parseInt(changes.transferOut) : mergedData.transferOut ?? 0,
+                discard: changes.discard !== undefined ? parseInt(changes.discard) : mergedData.discard ?? 0,
+                remainingInventory: changes.remainingInventory !== undefined ? parseInt(changes.remainingInventory) : mergedData.remainingInventory ?? 0,
                 updatedAt: new Date().toISOString(),
               };
 

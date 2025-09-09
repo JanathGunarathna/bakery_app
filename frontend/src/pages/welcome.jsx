@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -5,13 +6,14 @@ export default function Welcome() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
 
-  const handleGetStarted = () => {
+  // Professional: use useCallback for handlers
+  const handleGetStarted = React.useCallback(() => {
     navigate("/selection");
-  };
+  }, [navigate]);
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = React.useCallback(() => {
     setIsDarkMode((prev) => !prev);
-  };
+  }, []);
 
   return (
     <div
@@ -70,7 +72,7 @@ export default function Welcome() {
       </div>
 
       {/* Header with modern navbar */}
-      <header className="relative z-20 flex justify-between items-center p-8">
+  <header className="relative z-20 flex justify-between items-center p-8">
         <div className="flex items-center gap-4">
           <div
             className={`relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-300 hover:scale-110 overflow-hidden ${
@@ -115,12 +117,14 @@ export default function Welcome() {
           </nav> */}
 
           <button
+            type="button"
             onClick={toggleDarkMode}
             className={`group flex items-center gap-2 px-5 py-3 rounded-2xl backdrop-blur-md transition-all duration-300 hover:scale-105 ${
               isDarkMode
                 ? "bg-white/10 hover:bg-white/15 text-amber-200 border border-white/20"
                 : "bg-white/70 hover:bg-white/90 text-amber-700 border border-white/50 shadow-lg"
             }`}
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
             <span className={`text-lg transition-all duration-300 group-hover:scale-110 ${
               isDarkMode ? "text-yellow-400" : "text-amber-600"
@@ -179,12 +183,14 @@ export default function Welcome() {
         {/* Modern CTA section */}
         <div className="flex flex-col sm:flex-row gap-4 items-center mb-16">
           <button
+            type="button"
             onClick={handleGetStarted}
             className={`group relative px-12 py-5 text-lg font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 focus:outline-none focus:ring-4 active:scale-95 overflow-hidden ${
               isDarkMode
                 ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-2xl focus:ring-amber-500/50"
                 : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-2xl focus:ring-amber-400/50"
             }`}
+            aria-label="Get started with T&S Bakery"
           >
             <div className="absolute inset-0 bg-white/20 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             <span className="relative z-10 flex items-center gap-3">
@@ -239,7 +245,7 @@ export default function Welcome() {
         </div> */}
       </div>
 
-      <style jsx>{`
+  <style>{`
         @keyframes floatSlow {
           0%, 100% {
             transform: translateY(0px) rotate(12deg);
@@ -259,7 +265,7 @@ export default function Welcome() {
             opacity: 0.3;
           }
         }
-      `}</style>
+  `}</style>
     </div>
   );
 }
