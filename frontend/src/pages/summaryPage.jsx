@@ -99,6 +99,7 @@ const Toast = ({ toast, onRemove, isDarkMode }) => {
 };
 
 export default function SummaryPage() {
+
   // Dark mode state - using React state instead of localStorage
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -138,8 +139,26 @@ export default function SummaryPage() {
   });
 
   // Cash balance states
-  const [openingBalance, setOpeningBalance] = useState(0);
-  const [closingBalance, setClosingBalance] = useState(0);
+  const [deposit, setDeposit] = useState(() => Number(localStorage.getItem("deposit")) || 0);
+  const [openingBalance, setOpeningBalance] = useState(() => Number(localStorage.getItem("openingBalance")) || 0);
+  const [closingBalance, setClosingBalance] = useState(() => Number(localStorage.getItem("closingBalance")) || 0);
+
+  // Cashier name state
+  const [cashierName, setCashierName] = useState(() => localStorage.getItem("cashierName") || "");
+
+  // Load previous day's closing balance as opening balance
+  debugger;
+  useEffect(() => {
+    const prevDate = new Date(filters.date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const previousDateStr = prevDate.toISOString().split("T")[0];
+    // Try to get previous closing balance from localStorage (key: closingBalance_<shop>_<date>)
+    const prevKey = `closingBalance_${filters.shop}_${previousDateStr}`;
+    const prevClosing = localStorage.getItem(prevKey);
+    if (prevClosing !== null) {
+      setOpeningBalance(Number(prevClosing));
+    }
+  }, [filters.shop, filters.date]);
 
   const navigate = useNavigate();
 
@@ -528,9 +547,25 @@ export default function SummaryPage() {
   }, [filteredInventoryData, getItemPrice, getItemOrder]);
 
   // Calculate cash balance
+  const calculatedSellingValue = summaryStats.grandTotalSalesValue;
   const calculatedClosingBalance = useMemo(() => {
-    return openingBalance + summaryStats.grandTotalSalesValue;
-  }, [openingBalance, summaryStats.grandTotalSalesValue]);
+    return openingBalance + calculatedSellingValue - deposit;
+  }, [openingBalance, calculatedSellingValue, deposit]);
+
+  // Equation check: opening + selling = deposit + closing
+  const equationResult = useMemo(() => {
+    const left = openingBalance + calculatedSellingValue;
+    const right = deposit + closingBalance;
+    const diff = left - right;
+    return {
+      surplus: diff > 0 ? diff : 0,
+      deficit: diff < 0 ? -diff : 0,
+      isBalanced: Math.abs(diff) < 0.01,
+      left,
+      right,
+      diff,
+    };
+  }, [openingBalance, calculatedSellingValue, deposit, closingBalance]);
 
   // Update closing balance when calculated value changes
   useEffect(() => {
@@ -599,6 +634,7 @@ export default function SummaryPage() {
     openingBalance,
     closingBalance,
     enhancedTableData,
+    cashierName,
   ]);
 
   // Fixed PDF generation function
@@ -659,12 +695,18 @@ export default function SummaryPage() {
       doc.text("T & S Bakery - Daily Summary Report", margin, yPosition);
       yPosition += 12;
 
-      // Basic Info
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Shop: ${filters.shop}`, margin, yPosition);
-      doc.text(`Date: ${filters.date}`, margin + 80, yPosition);
-      yPosition += 10;
+  // Basic Info
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Shop: ${filters.shop}`, margin, yPosition);
+  doc.text(`Date: ${filters.date}`, margin + 60, yPosition);
+  yPosition += 7;
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Cashier: ${cashierName || "-"}`, margin, yPosition);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  yPosition += 10;
 
       // Add a line separator
       doc.setLineWidth(0.5);
@@ -685,12 +727,28 @@ export default function SummaryPage() {
         `Bakery Sales Value: Rs. ${summaryStats.totalSalesValue.toFixed(2)}`,
         `Beverage Sales Value: Rs. ${summaryStats.totalBeverageSalesValue.toFixed(2)}`,
         `Total Sales Value: Rs. ${summaryStats.grandTotalSalesValue.toFixed(2)}`,
+        `Deposit: Rs. ${deposit.toFixed(2)}`,
         `Closing Balance: Rs. ${closingBalance.toFixed(2)}`,
+        `Equation: Opening + Selling = Deposit + Closing`,
+        `${openingBalance.toFixed(2)} + ${calculatedSellingValue.toFixed(2)} = ${deposit.toFixed(2)} + ${closingBalance.toFixed(2)}`,
+        equationResult.isBalanced
+          ? `Balanced`
+          : equationResult.surplus > 0
+            ? `Surplus: Rs. ${equationResult.surplus.toFixed(2)}`
+            : `Deficit: Rs. ${equationResult.deficit.toFixed(2)}`
       ];
 
-      financialData.forEach((line) => {
+      financialData.forEach((line, idx) => {
+        // Bold and larger font for 'Total Sales Value' and surplus/deficit only
+        if (idx === 3 || idx === 8) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(13);
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+        }
         doc.text(line, margin + 5, yPosition);
-        yPosition += 5;
+        yPosition += 6;
       });
       yPosition += 5;
 
@@ -1150,7 +1208,44 @@ export default function SummaryPage() {
             💰 Cash Balance Management
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Temporary Save & Show PDF Button */}
+            <div className="col-span-1 md:col-span-4 flex items-center mt-4">
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                className={`px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-md transition-all duration-200 font-medium shadow-md hover:shadow-lg text-sm`}
+              >
+                💾 Save
+              </button>
+              {/* <span className={`ml-3 text-xs ${isDarkMode ? "text-green-300" : "text-green-700"}`}></span> */}
+            </div>
+            <div>
+              <label
+                htmlFor="cashier-name"
+                className={`block text-xs font-medium mb-1 ${
+                  isDarkMode ? "text-green-300" : "text-green-700"
+                }`}
+              >
+                Cashier Name:
+              </label>
+              <input
+                id="cashier-name"
+                type="text"
+                value={cashierName}
+                onChange={(e) => {
+                  setCashierName(e.target.value);
+                  localStorage.setItem("cashierName", e.target.value);
+                }}
+                className={`w-full border rounded-md px-2 py-2 focus:ring-1 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-xs ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-slate-200"
+                    : "bg-white border-slate-300 text-slate-700"
+                }`}
+                placeholder="Enter cashier name"
+              />
+            </div>
+
             <div>
               <label
                 htmlFor="opening-balance"
@@ -1226,10 +1321,53 @@ export default function SummaryPage() {
                   isDarkMode ? "text-green-400" : "text-green-600"
                 }`}
               >
-                Auto-calculated: Rs. {calculatedClosingBalance.toFixed(2)}
+                Deposite Value: Rs. {calculatedClosingBalance.toFixed(2)}
               </p>
             </div>
+
+            <div>
+              <label
+                htmlFor="deposit"
+                className={`block text-xs font-medium mb-1 ${
+                  isDarkMode ? "text-green-300" : "text-green-700"
+                }`}
+              >
+                Deposit (Rs.):
+              </label>
+              <input
+                id="deposit"
+                type="number"
+                step="0.01"
+                min="0"
+                value={deposit}
+                onChange={(e) => {
+                  setDeposit(parseFloat(e.target.value) || 0);
+                  localStorage.setItem("deposit", e.target.value);
+                }}
+                className={`w-full border rounded-md px-2 py-2 focus:ring-1 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-xs ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-slate-200"
+                    : "bg-white border-slate-300 text-slate-700"
+                }`}
+                placeholder="0.00"
+              />
+            </div>
           </div>
+
+          <p className={`text-xs mt-1 ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+            <span>Equation: <b>Opening + Selling = Deposit + Closing</b></span><br/>
+            <span>
+              {openingBalance.toFixed(2)} + {calculatedSellingValue.toFixed(2)} = {deposit.toFixed(2)} + {closingBalance.toFixed(2)}
+            </span><br/>
+            <span>
+              {equationResult.isBalanced
+                ? <span className="text-green-600">Balanced</span>
+                : equationResult.surplus > 0
+                  ? <span className="text-blue-600">Surplus: Rs. {equationResult.surplus.toFixed(2)}</span>
+                  : <span className="text-red-600">Deficit: Rs. {equationResult.deficit.toFixed(2)}</span>
+              }
+            </span>
+          </p>
         </section>
 
         {/* Summary Statistics */}
