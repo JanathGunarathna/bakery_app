@@ -1,9 +1,10 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import backgroundImage from "../images/background.jpg";
 
 export default function Welcome() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const navigate = useNavigate();
 
   // Professional: use useCallback for handlers
@@ -17,14 +18,26 @@ export default function Welcome() {
 
   return (
     <div
-      className={`min-h-screen relative transition-colors duration-300 ${
-        isDarkMode
-          ? "bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 text-white"
-          : "bg-gradient-to-br from-stone-50 via-amber-50 to-orange-50 text-gray-900"
-      }`}
+      className="min-h-screen relative transition-colors duration-300"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
     >
-      {/* Modern geometric background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Gradient overlay for better content visibility */}
+      <div
+        className={`absolute inset-0 transition-colors duration-300 ${
+          isDarkMode
+            ? "bg-gradient-to-br from-gray-900/80 via-slate-900/85 to-gray-800/80"
+            : "bg-gradient-to-br from-stone-50/85 via-amber-50/90 to-orange-50/85"
+        }`}
+      ></div>
+      <div className={`relative z-10 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+        {/* Modern geometric background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Glassmorphism cards floating */}
         <div
           className={`absolute top-20 left-16 w-72 h-48 rounded-3xl opacity-40 blur-sm rotate-12 ${
@@ -34,7 +47,7 @@ export default function Welcome() {
           }`}
           style={{ 
             animation: "floatSlow 12s ease-in-out infinite",
-            backdropFilter: "blur(20px)"
+            backdropFilter: "blur(40px)"
           }}
         ></div>
         
@@ -266,6 +279,7 @@ export default function Welcome() {
           }
         }
   `}</style>
+      </div>
     </div>
   );
 }

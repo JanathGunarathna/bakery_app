@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { getDoc } from "firebase/firestore";
+import backgroundImage from "../images/background.jpg";
 
 const SHOPS = [
   "Katuwawala",
@@ -107,7 +108,7 @@ const Toast = ({ toast, onRemove, isDarkMode }) => {
 };
 
 export default function SelectionPage() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [inventoryData, setInventoryData] = useState([]);
   const [beverageData, setBeverageData] = useState([]);
   const [priceData, setPriceData] = useState([]);
@@ -860,12 +861,24 @@ export default function SelectionPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode
-          ? "bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800"
-          : "bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50"
-      }`}
+      className="min-h-screen transition-colors duration-300"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
     >
+      {/* Gradient overlay for better content visibility */}
+      <div
+        className={`absolute inset-0 transition-colors duration-300 ${
+          isDarkMode
+            ? "bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80"
+            : "bg-gradient-to-br from-gray-50/85 via-slate-50/90 to-blue-50/85"
+        }`}
+      ></div>
+      <div className={`relative z-10 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
       {/* Toast Notifications Container */}
       <div className="toast-container">
         {toasts.map((toast, index) => (
@@ -2090,6 +2103,7 @@ export default function SelectionPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

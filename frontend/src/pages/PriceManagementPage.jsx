@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import backgroundImage from "../images/background.jpg";
 
 const SHOPS = [
   "Katuwawala",
@@ -103,7 +104,7 @@ const Toast = ({ toast, onRemove, isDarkMode }) => {
 
 export default function AddPricePage({ onNavigate }) {
   // Dark mode state - using React state instead of localStorage
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Toast notifications state
   const [toasts, setToasts] = useState([]);
@@ -682,12 +683,24 @@ useEffect(() => {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode
-          ? "bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800"
-          : "bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100"
-      }`}
+      className="min-h-screen transition-colors duration-300"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
     >
+      {/* Gradient overlay for better content visibility */}
+      <div
+        className={`absolute inset-0 transition-colors duration-300 ${
+          isDarkMode
+            ? "bg-gradient-to-br from-gray-900/80 via-slate-900/85 to-gray-800/80"
+            : "bg-gradient-to-br from-slate-50/85 via-purple-50/90 to-indigo-100/85"
+        }`}
+      ></div>
+      <div className={`relative z-10 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
       {/* Toast Notifications Container */}
       <div className="toast-container">
         {toasts.map((toast, index) => (
@@ -1397,6 +1410,7 @@ useEffect(() => {
             {totalEditingPrices}
           </p>
         </footer>
+      </div>
       </div>
     </div>
   );
